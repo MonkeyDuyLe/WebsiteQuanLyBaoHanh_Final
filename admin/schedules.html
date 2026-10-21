@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Trực & Phân Ca Kỹ Thuật Viên - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .calendar-week-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 14px 20px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+        }
+        .shift-badge-block {
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .shift-badge-block:hover {
+            transform: scale(1.02);
+        }
+        .shift-sang { background: #fff8e1; border-left: 3px solid #ffb300; color: #ff8f00; }
+        .shift-chieu { background: #e3f2fd; border-left: 3px solid #1e88e5; color: #1565c0; }
+        .shift-toi { background: #f3e5f5; border-left: 3px solid #8e24aa; color: #6a1b9a; }
+    </style>
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html" class="active"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>📅 Quản Lý Lịch Làm Việc & Ca Trực KTV (US.13)</h1>
+                <p>Phân bổ nhân sự kỹ thuật sửa chữa theo ca trực Sáng - Chiều - Tối hợp lý trong tuần</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-action primary" onclick="openScheduleModal()"><i class="fas fa-calendar-plus"></i> Đăng ký ca trực mới</button>
+            </div>
+        </div>
+
+        <!-- Week Navigation Control -->
+        <div class="calendar-week-nav">
+            <button class="btn-action secondary" onclick="changeWeek(-1)" style="padding: 6px 14px;"><i class="fas fa-chevron-left"></i> Tuần trước</button>
+            <h3 id="currentWeekLabel" style="font-size: 1.1rem; color: var(--primary);">Đang tải tuần...</h3>
+            <button class="btn-action secondary" onclick="changeWeek(1)" style="padding: 6px 14px;">Tuần tiếp theo <i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <!-- Filter by KTV -->
+        <div class="search-bar" style="margin-bottom: 15px;">
+            <select id="ktvFilter" onchange="renderCalendar()" style="max-width: 300px;">
+                <option value="all">Tất cả Kỹ thuật viên (KTV)</option>
+            </select>
+        </div>
+
+        <!-- 7-Days Calendar Grid -->
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- Headers and Cells dynamically generated -->
+        </div>
+
+        <!-- Legend -->
+        <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 0.85rem; color: #555; flex-wrap: wrap;">
+            <span><strong style="color: #ff8f00;">■ Ca Sáng:</strong> 08:00 - 12:00</span>
+            <span><strong style="color: #1565c0;">■ Ca Chiều:</strong> 13:00 - 17:00</span>
+            <span><strong style="color: #6a1b9a;">■ Ca Tối:</strong> 18:00 - 21:00</span>
+        </div>
+    </main>
+
+    <!-- Modal Add Shift -->
+    <div id="scheduleModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar-plus"></i> Phân Ca Trực Cho Kỹ Thuật Viên</h3>
+                <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
+            </div>
+            <form id="scheduleForm" onsubmit="handleSaveSchedule(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="modalKtvSelect">Chọn Kỹ thuật viên (*)</label>
+                        <select id="modalKtvSelect" required></select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalShiftDate">Ngày làm việc (*)</label>
+                            <input type="date" id="modalShiftDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="modalShiftType">Ca trực (*)</label>
+                            <select id="modalShiftType" required>
+                                <option value="sang">Ca Sáng (08:00 - 12:00)</option>
+                                <option value="chieu">Ca Chiều (13:00 - 17:00)</option>
+                                <option value="toi">Ca Tối (18:00 - 21:00)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="modalShiftNote">Ghi chú phân công / Chuyên môn</label>
+                        <input type="text" id="modalShiftNote" placeholder="vd: Ưu tiên nhận sửa mainboard hoặc thay màn hình">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeScheduleModal()">Hủy</button>
+                    <button type="submit" id="btnSaveSchedule" class="btn btn-save"><i class="fas fa-check"></i> Lưu lịch trực</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentWeekOffset = 0;
+        let ktvList = [];
+        let allSchedules = [];
+
+        async function initPage() {
+            const { user, userData } = await checkAdminAuth('../index.html');
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+
+            await loadKtvList();
+            await loadSchedules();
+        }
+
+        async function loadKtvList() {
+            try {
+                // Fetch KTVs from Firestore
+                const snapshot = await db.collection('users').where('role', '==', 'ktv').get();
+                ktvList = [];
+                snapshot.forEach(doc => {
+                    ktvList.push({ id: doc.id, ...doc.data() });
+                });
+
+                // If empty, add default KTVs
+                if (ktvList.length === 0) {
+                    ktvList = [
+                        { id: 'ktv1', fullName: 'Trần Văn Kỹ Thuật (Phần Cứng)', phone: '0981122334' },
+                        { id: 'ktv2', fullName: 'Lê Hoàng Nam (Phần Mềm/Nâng Cấp)', phone: '0982233445' },
+                        { id: 'ktv3', fullName: 'Nguyễn Văn Minh (Chuyên Macbook/Laptop)', phone: '0983344556' }
+                    ];
+                }
+
+                // Populate filter & modal selects
+                const filterSelect = document.getElementById('ktvFilter');
+                const modalSelect = document.getElementById('modalKtvSelect');
+
+                filterSelect.innerHTML = '<option value="all">Tất cả Kỹ thuật viên (KTV)</option>';
+                modalSelect.innerHTML = '';
+
+                ktvList.forEach(k => {
+                    filterSelect.innerHTML += `<option value="${k.id}">${k.fullName}</option>`;
+                    modalSelect.innerHTML += `<option value="${k.id}" data-name="${k.fullName}">${k.fullName}</option>`;
+                });
+            } catch (err) {
+                console.error('Error loading KTVs:', err);
+            }
+        }
+
+        async function loadSchedules() {
+            try {
+                const snapshot = await db.collection('schedules').get();
+                allSchedules = [];
+                snapshot.forEach(doc => {
+                    allSchedules.push({ id: doc.id, ...doc.data() });
+                });
+                renderCalendar();
+            } catch (err) {
+                console.error('Error loading schedules:', err);
+            }
+        }
+
+        function getStartOfWeek(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday is first day
+            return new Date(d.setDate(diff));
+        }
+
+        function changeWeek(delta) {
+            currentWeekOffset += delta;
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const today = new Date();
+            const currentMonday = getStartOfWeek(today);
+            currentMonday.setDate(currentMonday.getDate() + (currentWeekOffset * 7));
+
+            const daysOfWeek = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+            const weekDates = [];
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(currentMonday);
+                d.setDate(d.getDate() + i);
+                weekDates.push(d);
+            }
+
+            // Update Week Label
+            const startStr = formatDate(weekDates[0]);
+            const endStr = formatDate(weekDates[6]);
+            document.getElementById('currentWeekLabel').textContent = `Tuần: ${startStr} — ${endStr}`;
+
+            // Render Header Cells
+            daysOfWeek.forEach((dayName, idx) => {
+                const dateNum = weekDates[idx].getDate();
+                const monthNum = weekDates[idx].getMonth() + 1;
+                grid.innerHTML += `
+                    <div class="calendar-header">
+                        ${dayName}<br><small style="font-weight:normal;">${dateNum}/${monthNum}</small>
+                    </div>
+                `;
+            });
+
+            // Filter KTV
+            const selectedKtv = document.getElementById('ktvFilter').value;
+
+            // Render Day Cells
+            weekDates.forEach((dateObj) => {
+                const dateKey = dateObj.toISOString().split('T')[0];
+                const shiftsForDay = allSchedules.filter(s => {
+                    const matchDate = s.date === dateKey;
+                    const matchKtv = selectedKtv === 'all' || s.ktvId === selectedKtv;
+                    return matchDate && matchKtv;
+                });
+
+                let shiftsHtml = '';
+                shiftsForDay.forEach(shift => {
+                    const shiftClass = shift.shift === 'sang' ? 'shift-sang' : (shift.shift === 'chieu' ? 'shift-chieu' : 'shift-toi');
+                    const shiftLabel = shift.shift === 'sang' ? 'Sáng' : (shift.shift === 'chieu' ? 'Chiều' : 'Tối');
+
+                    shiftsHtml += `
+                        <div class="shift-badge-block ${shiftClass}" title="${shift.note || ''}">
+                            <div>
+                                <strong>[${shiftLabel}]</strong> ${shift.ktvName}
+                            </div>
+                            <span style="cursor:pointer; margin-left: 6px;" onclick="deleteShift('${shift.id}')">&times;</span>
+                        </div>
+                    `;
+                });
+
+                grid.innerHTML += `
+                    <div class="calendar-cell">
+                        ${shiftsHtml || '<span style="color:#bbb; font-size:0.75rem;">Trống ca</span>'}
+                    </div>
+                `;
+            });
+        }
+
+        function openScheduleModal() {
+            document.getElementById('scheduleForm').reset();
+            // Default date to today
+            document.getElementById('modalShiftDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('scheduleModal').classList.add('active');
+        }
+
+        function closeScheduleModal() {
+            document.getElementById('scheduleModal').classList.remove('active');
+        }
+
+        async function handleSaveSchedule(e) {
+            e.preventDefault();
+            const ktvSelect = document.getElementById('modalKtvSelect');
+            const ktvId = ktvSelect.value;
+            const ktvName = ktvSelect.options[ktvSelect.selectedIndex].getAttribute('data-name');
+            const date = document.getElementById('modalShiftDate').value;
+            const shift = document.getElementById('modalShiftType').value;
+            const note = document.getElementById('modalShiftNote').value.trim();
+            const btn = document.getElementById('btnSaveSchedule');
+
+            try {
+                btn.disabled = true;
+                await db.collection('schedules').add({
+                    ktvId,
+                    ktvName,
+                    date,
+                    shift,
+                    note,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast(`Đã thêm ca trực cho ${ktvName}!`, 'success');
+                closeScheduleModal();
+                btn.disabled = false;
+                loadSchedules();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu lịch trực: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteShift(id) {
+            if (confirm('Hủy bỏ ca trực này của kỹ thuật viên?')) {
+                try {
+                    await db.collection('schedules').doc(id).delete();
+                    showToast('Đã xóa ca trực!', 'success');
+                    loadSchedules();
+                } catch (err) {
+                    showToast('Lỗi: ' + err.message, 'error');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Khách Hàng - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="active"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>👋 Xin chào, <span id="welcomeUserName" style="color: var(--accent-dark);">Quý khách</span>!</h1>
+                <p>Chào mừng bạn đến với Cổng dịch vụ bảo hành & kỹ thuật TechCare Pro</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="new-request.html" class="btn-action primary"><i class="fas fa-calendar-plus"></i> Đặt lịch hẹn sửa máy mới</a>
+            </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fas fa-tools"></i></div>
+                <div class="stat-info">
+                    <h3 id="statUserActive">0</h3>
+                    <p>Thiết bị đang sửa chữa</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="stat-info">
+                    <h3 id="statUserQuotePending">0</h3>
+                    <p>Báo giá đang chờ duyệt (US.25)</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="fas fa-check-double"></i></div>
+                <div class="stat-info">
+                    <h3 id="statUserCompleted">0</h3>
+                    <p>Phiếu đã hoàn thành</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="fas fa-laptop"></i></div>
+                <div class="stat-info">
+                    <h3 id="statUserDevices">0</h3>
+                    <p>Thiết bị đã đăng ký (US.08)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert for pending quotations (US.25) -->
+        <div id="quotationAlertBox" style="display: none; background: #fff3e0; border-left: 4px solid #f57c00; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="margin: 0 0 4px 0; color: #e65100;"><i class="fas fa-bell"></i> Bạn có báo giá sửa chữa mới cần duyệt!</h4>
+                    <p style="margin: 0; font-size: 0.9rem; color: #b78103;">Kỹ thuật viên đã kiểm tra máy và gửi báo giá linh kiện chi tiết. Vui lòng xác nhận đồng ý hoặc từ chối để KTV tiến hành.</p>
+                </div>
+                <a href="my-tickets.html" class="btn-action warning" style="padding: 8px 16px; font-size: 0.85rem;">Xem & Duyệt ngay</a>
+            </div>
+        </div>
+
+        <!-- Active Tickets List -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-spinner fa-spin"></i> Phiếu Sửa Chữa Đang Xử Lý Gần Đây</h2>
+                <a href="my-tickets.html" style="color: var(--accent-dark); text-decoration: none; font-size: 0.9rem; font-weight: 600;">Xem tất cả &rarr;</a>
+            </div>
+            <div class="card-body no-pad">
+                <div id="loadingTickets" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải thông tin phiếu của bạn...</p>
+                </div>
+                <table id="userTicketsTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Mã Ticket</th>
+                            <th>Thiết Bị PC / Laptop</th>
+                            <th>Triệu Chứng Hỏng</th>
+                            <th>Trạng Thái</th>
+                            <th>KTV Phụ Trách</th>
+                            <th>Ngày Tiếp Nhận</th>
+                            <th>Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTicketsBody"></tbody>
+                </table>
+                <div id="emptyTickets" class="empty-state" style="display: none;">
+                    <span class="icon">✨</span>
+                    <p>Hiện tại bạn không có thiết bị nào đang sửa chữa tại cửa hàng.</p>
+                    <a href="new-request.html" class="btn-action primary" style="margin-top: 10px;">Gửi yêu cầu sửa chữa</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+
+        async function initPage() {
+            // Strictly enforce customer role only
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+
+            const displayName = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = displayName;
+            document.getElementById('welcomeUserName').textContent = displayName;
+            document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+
+            loadCustomerDashboard(user, userData);
+        }
+
+        async function loadCustomerDashboard(user, userData) {
+            try {
+                // Find tickets belonging to this customer by customerPhone or customerEmail
+                const phone = userData.phone || '';
+                const email = user.email || '';
+
+                const snapshot = await db.collection('tickets').get();
+                let activeCount = 0;
+                let quotePendingCount = 0;
+                let completedCount = 0;
+
+                const userTickets = [];
+
+                snapshot.forEach(doc => {
+                    const t = { id: doc.id, ...doc.data() };
+                    const matchPhone = phone && t.customerPhone && (t.customerPhone.includes(phone) || phone.includes(t.customerPhone));
+                    const matchEmail = email && t.customerEmail && t.customerEmail.toLowerCase() === email.toLowerCase();
+                    const matchUid = t.customerId === user.uid;
+
+                    if (matchPhone || matchEmail || matchUid) {
+                        userTickets.push(t);
+
+                        if (['cho_xu_ly', 'dang_kiem_tra', 'dang_sua', 'cho_linh_kien'].includes(t.status)) {
+                            activeCount++;
+                        } else if (['hoan_thanh', 'da_ban_giao'].includes(t.status)) {
+                            completedCount++;
+                        }
+
+                        if (t.quotationStatus === 'pending' && t.totalCost > 0) {
+                            quotePendingCount++;
+                        }
+                    }
+                });
+
+                document.getElementById('statUserActive').textContent = activeCount;
+                document.getElementById('statUserQuotePending').textContent = quotePendingCount;
+                document.getElementById('statUserCompleted').textContent = completedCount;
+
+                if (quotePendingCount > 0) {
+                    document.getElementById('quotationAlertBox').style.display = 'block';
+                }
+
+                // Check registered devices count
+                const devSnap = await db.collection('users').doc(user.uid).collection('devices').get();
+                document.getElementById('statUserDevices').textContent = devSnap.size;
+
+                renderUserTickets(userTickets);
+            } catch (err) {
+                console.error('Customer dashboard error:', err);
+                document.getElementById('loadingTickets').style.display = 'none';
+            }
+        }
+
+        function renderUserTickets(list) {
+            document.getElementById('loadingTickets').style.display = 'none';
+            const table = document.getElementById('userTicketsTable');
+            const tbody = document.getElementById('userTicketsBody');
+            const empty = document.getElementById('emptyTickets');
+
+            if (list.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            list.slice(0, 5).forEach(t => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong style="color:var(--accent-dark);">${t.ticketId}</strong></td>
+                        <td>${t.deviceType === 'laptop' ? '💻' : '🖥️'} ${t.deviceBrand || ''} ${t.deviceModel || ''}</td>
+                        <td>${t.issueDescription || '---'}</td>
+                        <td>${getStatusBadge(t.status)}</td>
+                        <td>${t.assignedKtvName || '<span style="color:#aaa;">Đang xếp ca</span>'}</td>
+                        <td>${formatDate(t.createdAt)}</td>
+                        <td>
+                            <a href="my-tickets.html?id=${t.id}" class="btn-action primary" style="padding: 4px 10px; font-size: 0.8rem;">
+                                <i class="fas fa-eye"></i> Chi tiết
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

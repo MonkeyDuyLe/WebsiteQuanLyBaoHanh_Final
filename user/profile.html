@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hồ Sơ Cá Nhân & Thiết Bị PC/Laptop - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html" class="active"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1>👤 Thông Tin Cá Nhân & Thiết Bị PC / Laptop (US.08)</h1>
+            <p>Quản lý thông tin liên hệ và đăng ký trước thiết bị máy tính để nhận diện bảo hành nhanh chóng</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 25px;">
+            <!-- Profile Info Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-edit"></i> Thông Tin Cá Nhân</h2>
+                </div>
+                <div class="card-body">
+                    <form id="profileForm" onsubmit="handleSaveProfile(event)">
+                        <div class="form-group">
+                            <label for="profFullName">Họ và tên (*)</label>
+                            <input type="text" id="profFullName" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="profEmail">Địa chỉ Email</label>
+                            <input type="email" id="profEmail" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="profPhone">Số điện thoại liên hệ (*)</label>
+                            <input type="tel" id="profPhone" required placeholder="0912345678">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="profAddress">Địa chỉ nơi ở (Hỗ trợ giao nhận máy tận nơi)</label>
+                            <input type="text" id="profAddress" placeholder="Số nhà, Tên đường, Phường/Xã, Quận/Huyện...">
+                        </div>
+
+                        <button type="submit" id="btnSaveProfile" class="btn-action primary" style="width: 100%;">
+                            <i class="fas fa-save"></i> Cập nhật hồ sơ
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Devices Card (US.08) -->
+            <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2><i class="fas fa-laptop"></i> Thiết Bị Đã Đăng Ký</h2>
+                    <button class="btn-action primary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="openDeviceModal()">
+                        <i class="fas fa-plus"></i> Thêm máy mới
+                    </button>
+                </div>
+                <div class="card-body no-pad">
+                    <div id="deviceLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Đang tải danh sách thiết bị...</p>
+                    </div>
+                    <div id="devicesList" style="display: none; padding: 15px;"></div>
+                    <div id="devicesEmpty" class="empty-state" style="display: none;">
+                        <span class="icon">💻</span>
+                        <p>Bạn chưa lưu thiết bị PC/Laptop nào.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Add/Edit Device (US.08) -->
+    <div id="deviceModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="devModalTitle"><i class="fas fa-laptop"></i> Đăng Ký Thiết Bị Máy Tính Mới</h3>
+                <button class="modal-close" onclick="closeDeviceModal()">&times;</button>
+            </div>
+            <form id="deviceForm" onsubmit="handleSaveDevice(event)">
+                <input type="hidden" id="editDeviceId">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="devType">Loại thiết bị (*)</label>
+                            <select id="devType" required>
+                                <option value="laptop">Laptop / Notebook</option>
+                                <option value="pc">Máy tính để bàn PC</option>
+                                <option value="allinone">Máy tính All-In-One</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="devBrand">Hãng sản xuất (*)</label>
+                            <input type="text" id="devBrand" placeholder="Dell, Asus, HP, Lenovo, Apple..." required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="devModel">Model máy (*)</label>
+                            <input type="text" id="devModel" placeholder="Inspiron 15 3520" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="devSerial">Số Serial / Service Tag (*)</label>
+                            <input type="text" id="devSerial" placeholder="DELL-SN-12345" required style="text-transform:uppercase;">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="devPurchaseDate">Ngày mua máy</label>
+                            <input type="date" id="devPurchaseDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="devWarrantyExpiry">Hạn bảo hành gốc</label>
+                            <input type="date" id="devWarrantyExpiry">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="devNotes">Ghi chú cấu hình máy (CPU, RAM, Ổ cứng...)</label>
+                        <input type="text" id="devNotes" placeholder="vd: Core i5 12400, 16GB RAM, SSD 512GB">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeDeviceModal()">Đóng</button>
+                    <button type="submit" id="btnSubmitDevice" class="btn btn-save"><i class="fas fa-save"></i> Lưu thiết bị</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+        let customerData = null;
+        let userDevices = [];
+
+        async function initPage() {
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+            customerData = userData;
+
+            const name = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            // Populate profile form
+            document.getElementById('profFullName').value = userData.fullName || '';
+            document.getElementById('profEmail').value = user.email || '';
+            document.getElementById('profPhone').value = userData.phone || '';
+            document.getElementById('profAddress').value = userData.address || '';
+
+            loadDevices();
+        }
+
+        async function handleSaveProfile(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSaveProfile');
+            try {
+                btn.disabled = true;
+                const newName = document.getElementById('profFullName').value.trim();
+                const newPhone = document.getElementById('profPhone').value.trim();
+                const newAddress = document.getElementById('profAddress').value.trim();
+
+                await db.collection('users').doc(currentAuthUser.uid).update({
+                    fullName: newName,
+                    phone: newPhone,
+                    address: newAddress,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast('Đã lưu thông tin cá nhân thành công!', 'success');
+                btn.disabled = false;
+                document.getElementById('userName').textContent = newName;
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi cập nhật hồ sơ: ' + err.message, 'error');
+            }
+        }
+
+        async function loadDevices() {
+            try {
+                document.getElementById('deviceLoading').style.display = 'block';
+                const snapshot = await db.collection('users').doc(currentAuthUser.uid).collection('devices').get();
+                userDevices = [];
+                snapshot.forEach(doc => {
+                    userDevices.push({ id: doc.id, ...doc.data() });
+                });
+                renderDevices(userDevices);
+            } catch (err) {
+                console.error('Error loading devices:', err);
+                document.getElementById('deviceLoading').style.display = 'none';
+            }
+        }
+
+        function renderDevices(list) {
+            document.getElementById('deviceLoading').style.display = 'none';
+            const container = document.getElementById('devicesList');
+            const empty = document.getElementById('devicesEmpty');
+
+            if (list.length === 0) {
+                container.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            container.style.display = 'block';
+            container.innerHTML = '';
+
+            list.forEach(d => {
+                container.innerHTML += `
+                    <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1rem; color: var(--primary);">
+                                ${d.type === 'laptop' ? '💻' : '🖥️'} ${d.brand} ${d.model}
+                            </div>
+                            <div style="font-size: 0.85rem; color: #555; margin-top: 3px;">
+                                <strong>Serial:</strong> <span style="font-family: monospace;">${d.serialNumber}</span>
+                                ${d.warrantyExpiry ? ` | <strong>Hạn BH:</strong> ${d.warrantyExpiry}` : ''}
+                            </div>
+                            ${d.notes ? `<div style="font-size: 0.8rem; color: #777;">${d.notes}</div>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="new-request.html?deviceId=${d.id}&brand=${encodeURIComponent(d.brand)}&model=${encodeURIComponent(d.model)}&serial=${encodeURIComponent(d.serialNumber)}" class="btn-action primary" style="padding: 4px 10px; font-size: 0.8rem;" title="Đặt lịch sửa máy này">
+                                <i class="fas fa-wrench"></i> Sửa máy này
+                            </a>
+                            <button class="btn-sm delete" style="padding: 6px 10px;" onclick="deleteDevice('${d.id}', '${d.brand} ${d.model}')" title="Xóa">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openDeviceModal() {
+            document.getElementById('deviceForm').reset();
+            document.getElementById('editDeviceId').value = '';
+            document.getElementById('devModalTitle').innerHTML = '<i class="fas fa-laptop"></i> Đăng Ký Thiết Bị Máy Tính Mới';
+            document.getElementById('deviceModal').classList.add('active');
+        }
+
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').classList.remove('active');
+        }
+
+        async function handleSaveDevice(e) {
+            e.preventDefault();
+            const id = document.getElementById('editDeviceId').value;
+            const btn = document.getElementById('btnSubmitDevice');
+
+            const payload = {
+                type: document.getElementById('devType').value,
+                brand: document.getElementById('devBrand').value.trim(),
+                model: document.getElementById('devModel').value.trim(),
+                serialNumber: document.getElementById('devSerial').value.trim().toUpperCase(),
+                purchaseDate: document.getElementById('devPurchaseDate').value,
+                warrantyExpiry: document.getElementById('devWarrantyExpiry').value,
+                notes: document.getElementById('devNotes').value.trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                btn.disabled = true;
+                if (id) {
+                    await db.collection('users').doc(currentAuthUser.uid).collection('devices').doc(id).update(payload);
+                    showToast('Đã cập nhật thông tin thiết bị!', 'success');
+                } else {
+                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('users').doc(currentAuthUser.uid).collection('devices').add(payload);
+                    showToast('Đã lưu thiết bị vào tài khoản!', 'success');
+                }
+                closeDeviceModal();
+                btn.disabled = false;
+                loadDevices();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu thiết bị: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteDevice(id, name) {
+            if (confirm(`Bạn có chắc muốn xóa thiết bị "${name}" khỏi danh sách?`)) {
+                try {
+                    await db.collection('users').doc(currentAuthUser.uid).collection('devices').doc(id).delete();
+                    showToast('Đã xóa thiết bị!', 'success');
+                    loadDevices();
+                } catch (err) {
+                    showToast('Lỗi: ' + err.message, 'error');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

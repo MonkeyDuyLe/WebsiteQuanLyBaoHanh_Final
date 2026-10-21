@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Nhân Viên & Phân Quyền - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS CDN for Excel Import/Export (US.12) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html" class="active"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>👥 Quản Lý Nhân Sự & Phân Quyền (US.02, US.03, US.11, US.12)</h1>
+                <p>Theo dõi nhân viên CSKH, Kỹ thuật viên, Thu ngân, Thủ kho và cấp quyền nghiệp vụ</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-action secondary" onclick="downloadExcelTemplate()"><i class="fas fa-file-download"></i> Tải mẫu Excel</button>
+                <label class="btn-action warning" style="cursor: pointer; margin: 0;">
+                    <i class="fas fa-file-excel"></i> Import Excel KTV
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelImport(event)">
+                </label>
+                <button class="btn-action primary" onclick="openEmployeeModal()"><i class="fas fa-user-plus"></i> Thêm nhân viên</button>
+            </div>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="search-bar">
+            <input type="text" id="employeeSearch" placeholder="Tìm theo tên, email, số điện thoại..." oninput="filterEmployees()">
+            <select id="roleFilter" onchange="filterEmployees()">
+                <option value="all">Tất cả vai trò</option>
+                <option value="ktv">Kỹ thuật viên (KTV)</option>
+                <option value="nhanvien_tiepnhan">NV Tiếp nhận / CSKH</option>
+                <option value="thungan">Nhân viên Thu ngân</option>
+                <option value="quanlykho">Quản lý kho</option>
+                <option value="admin">Quản trị viên (Admin)</option>
+            </select>
+            <select id="statusFilter" onchange="filterEmployees()">
+                <option value="all">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="locked">Đã bị khóa</option>
+            </select>
+        </div>
+
+        <!-- Table of Employees -->
+        <div class="card">
+            <div class="card-body no-pad">
+                <div id="empLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải danh sách nhân sự từ Firebase...</p>
+                </div>
+                <table id="employeesTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Họ và Tên</th>
+                            <th>Email Đăng Nhập</th>
+                            <th>Số Điện Thoại</th>
+                            <th>Vai Trò Nghiệp Vụ</th>
+                            <th>Trạng Thái</th>
+                            <th>Ngày Khởi Tạo</th>
+                            <th style="width: 140px;">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesBody"></tbody>
+                </table>
+                <div id="employeesEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">👥</span>
+                    <p>Chưa có nhân viên nào trong danh mục hoặc không khớp bộ lọc.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Add/Edit Employee -->
+    <div id="employeeModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="empModalTitle"><i class="fas fa-user-plus"></i> Thêm Nhân Viên Mới</h3>
+                <button class="modal-close" onclick="closeEmployeeModal()">&times;</button>
+            </div>
+            <form id="employeeForm" onsubmit="handleSaveEmployee(event)">
+                <input type="hidden" id="editEmpId">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="empFullName">Họ và tên (*)</label>
+                        <input type="text" id="empFullName" placeholder="vd: Trần Văn Kỹ Thuật" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empEmail">Email đăng nhập (*)</label>
+                            <input type="email" id="empEmail" placeholder="ktv.tran@techcare.vn" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="empPhone">Số điện thoại (*)</label>
+                            <input type="tel" id="empPhone" placeholder="0987654321" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empRole">Phân quyền vai trò (*)</label>
+                            <select id="empRole" required>
+                                <option value="ktv">Kỹ thuật viên (KTV)</option>
+                                <option value="nhanvien_tiepnhan">NV Tiếp nhận / CSKH</option>
+                                <option value="thungan">Nhân viên Thu ngân</option>
+                                <option value="quanlykho">Quản lý kho</option>
+                                <option value="admin">Quản trị viên (Admin)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="empPasswordGroup">
+                            <label for="empPassword">Mật khẩu cấp ban đầu (*)</label>
+                            <input type="password" id="empPassword" placeholder="Tối thiểu 6 ký tự" minlength="6">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="empStatus">Trạng thái tài khoản</label>
+                        <select id="empStatus">
+                            <option value="active">Đang hoạt động</option>
+                            <option value="locked">Khóa tài khoản</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeEmployeeModal()">Đóng</button>
+                    <button type="submit" id="btnSubmitEmp" class="btn btn-save"><i class="fas fa-save"></i> Lưu thông tin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let allEmployees = [];
+
+        async function initPage() {
+            const { user, userData } = await checkAdminAuth('../index.html');
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+            loadEmployees();
+        }
+
+        async function loadEmployees() {
+            try {
+                document.getElementById('empLoading').style.display = 'block';
+                // Query all non-customer users
+                const snapshot = await db.collection('users').where('role', '!=', 'khachhang').get();
+                allEmployees = [];
+                snapshot.forEach(doc => {
+                    allEmployees.push({ id: doc.id, ...doc.data() });
+                });
+                renderEmployees(allEmployees);
+            } catch (err) {
+                console.error('Error fetching employees:', err);
+                showToast('Lỗi tải nhân viên: ' + err.message, 'error');
+                document.getElementById('empLoading').style.display = 'none';
+            }
+        }
+
+        function renderEmployees(list) {
+            document.getElementById('empLoading').style.display = 'none';
+            const table = document.getElementById('employeesTable');
+            const tbody = document.getElementById('employeesBody');
+            const empty = document.getElementById('employeesEmpty');
+
+            if (list.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            list.forEach(emp => {
+                const isLocked = emp.status === 'locked';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${emp.fullName || 'Chưa đặt tên'}</strong>
+                        </td>
+                        <td>${emp.email}</td>
+                        <td>${emp.phone || '---'}</td>
+                        <td>${getRoleBadge(emp.role)}</td>
+                        <td>
+                            <span class="badge ${isLocked ? 'badge-danger' : 'badge-success'}">
+                                ${isLocked ? '<i class="fas fa-lock"></i> Đã khóa' : '<i class="fas fa-check"></i> Đang hoạt động'}
+                            </span>
+                        </td>
+                        <td>${formatDate(emp.createdAt)}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn-sm edit" title="Chỉnh sửa" onclick="editEmployee('${emp.id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-sm lock" title="${isLocked ? 'Mở khóa' : 'Khóa tài khoản'}" onclick="toggleLock('${emp.id}', '${emp.status}')">
+                                    <i class="fas ${isLocked ? 'fa-unlock' : 'fa-lock'}"></i>
+                                </button>
+                                <button class="btn-sm delete" title="Xóa" onclick="deleteEmployee('${emp.id}', '${emp.fullName || emp.email}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterEmployees() {
+            const kw = document.getElementById('employeeSearch').value.toLowerCase().trim();
+            const role = document.getElementById('roleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allEmployees.filter(emp => {
+                const matchKw = (emp.fullName && emp.fullName.toLowerCase().includes(kw)) ||
+                                (emp.email && emp.email.toLowerCase().includes(kw)) ||
+                                (emp.phone && emp.phone.includes(kw));
+                const matchRole = role === 'all' || emp.role === role;
+                const matchStatus = status === 'all' || emp.status === status;
+                return matchKw && matchRole && matchStatus;
+            });
+            renderEmployees(filtered);
+        }
+
+        function openEmployeeModal() {
+            document.getElementById('employeeForm').reset();
+            document.getElementById('editEmpId').value = '';
+            document.getElementById('empPasswordGroup').style.display = 'block';
+            document.getElementById('empPassword').setAttribute('required', 'required');
+            document.getElementById('empEmail').removeAttribute('disabled');
+            document.getElementById('empModalTitle').innerHTML = '<i class="fas fa-user-plus"></i> Thêm Nhân Viên Mới';
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.remove('active');
+        }
+
+        function editEmployee(id) {
+            const emp = allEmployees.find(e => e.id === id);
+            if (!emp) return;
+
+            document.getElementById('editEmpId').value = id;
+            document.getElementById('empFullName').value = emp.fullName || '';
+            document.getElementById('empEmail').value = emp.email || '';
+            document.getElementById('empEmail').setAttribute('disabled', 'disabled'); // Email cannot be modified directly
+            document.getElementById('empPhone').value = emp.phone || '';
+            document.getElementById('empRole').value = emp.role || 'ktv';
+            document.getElementById('empStatus').value = emp.status || 'active';
+
+            // Hide password on edit
+            document.getElementById('empPasswordGroup').style.display = 'none';
+            document.getElementById('empPassword').removeAttribute('required');
+
+            document.getElementById('empModalTitle').innerHTML = '<i class="fas fa-user-edit"></i> Chỉnh Sửa Nhân Viên';
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        async function handleSaveEmployee(e) {
+            e.preventDefault();
+            const id = document.getElementById('editEmpId').value;
+            const fullName = document.getElementById('empFullName').value.trim();
+            const email = document.getElementById('empEmail').value.trim();
+            const phone = document.getElementById('empPhone').value.trim();
+            const role = document.getElementById('empRole').value;
+            const status = document.getElementById('empStatus').value;
+            const password = document.getElementById('empPassword').value;
+            const btn = document.getElementById('btnSubmitEmp');
+
+            try {
+                btn.disabled = true;
+                if (id) {
+                    // Update existing
+                    await db.collection('users').doc(id).update({
+                        fullName,
+                        phone,
+                        role,
+                        status,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast('Đã cập nhật thông tin nhân viên!', 'success');
+                } else {
+                    // Create new employee
+                    // 1. Create secondary auth instance or create doc directly
+                    const newDocRef = db.collection('users').doc();
+                    await newDocRef.set({
+                        fullName,
+                        email,
+                        phone,
+                        role,
+                        status,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast(`Đã thêm nhân viên ${fullName} với quyền ${role}!`, 'success');
+                }
+                closeEmployeeModal();
+                btn.disabled = false;
+                loadEmployees();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu nhân viên: ' + err.message, 'error');
+            }
+        }
+
+        async function toggleLock(id, currentStatus) {
+            const newStatus = currentStatus === 'locked' ? 'active' : 'locked';
+            const actionText = newStatus === 'locked' ? 'khóa' : 'mở khóa';
+            if (confirm(`Bạn có chắc muốn ${actionText} tài khoản này?`)) {
+                try {
+                    await db.collection('users').doc(id).update({
+                        status: newStatus,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast(`Đã ${actionText} tài khoản thành công!`, 'success');
+                    loadEmployees();
+                } catch (err) {
+                    showToast('Lỗi thay đổi trạng thái: ' + err.message, 'error');
+                }
+            }
+        }
+
+        async function deleteEmployee(id, name) {
+            if (confirm(`Bạn có chắc muốn xóa nhân viên "${name}" khỏi hệ thống?`)) {
+                try {
+                    await db.collection('users').doc(id).delete();
+                    showToast('Đã xóa nhân viên thành công!', 'success');
+                    loadEmployees();
+                } catch (err) {
+                    showToast('Lỗi xóa nhân viên: ' + err.message, 'error');
+                }
+            }
+        }
+
+        // Excel Import (US.12)
+        function handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (!rows || rows.length === 0) {
+                        showToast('File Excel không có dữ liệu!', 'warning');
+                        return;
+                    }
+
+                    let importedCount = 0;
+                    for (const row of rows) {
+                        const fullName = row['Họ tên'] || row['FullName'] || row['Name'] || '';
+                        const email = row['Email'] || '';
+                        const phone = row['SĐT'] || row['Phone'] || '';
+                        let role = (row['Vai trò'] || row['Role'] || 'ktv').toLowerCase().trim();
+
+                        if (role.includes('kỹ thuật') || role.includes('ktv')) role = 'ktv';
+                        else if (role.includes('tiếp nhận') || role.includes('cskh')) role = 'nhanvien_tiepnhan';
+                        else if (role.includes('thu ngân')) role = 'thungan';
+                        else if (role.includes('kho')) role = 'quanlykho';
+                        else if (role.includes('admin')) role = 'admin';
+                        else role = 'ktv';
+
+                        if (email) {
+                            await db.collection('users').add({
+                                fullName: String(fullName),
+                                email: String(email).trim().toLowerCase(),
+                                phone: String(phone),
+                                role: role,
+                                status: 'active',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            importedCount++;
+                        }
+                    }
+
+                    showToast(`Đã import thành công ${importedCount} nhân sự từ file Excel!`, 'success');
+                    event.target.value = '';
+                    loadEmployees();
+                } catch (err) {
+                    console.error('Import error:', err);
+                    showToast('Lỗi đọc file Excel: ' + err.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Download sample Excel template
+        function downloadExcelTemplate() {
+            const templateData = [
+                { "Họ tên": "Trần Văn Kỹ Thuật", "Email": "ktv.tran@techcare.vn", "SĐT": "0981122334", "Vai trò": "ktv" },
+                { "Họ tên": "Nguyễn Thị Tiếp Nhận", "Email": "cskh.nguyen@techcare.vn", "SĐT": "0912233445", "Vai trò": "nhanvien_tiepnhan" },
+                { "Họ tên": "Lê Văn Kho", "Email": "kho.le@techcare.vn", "SĐT": "0903344556", "Vai trò": "quanlykho" },
+                { "Họ tên": "Phạm Thu Ngân", "Email": "thungan.pham@techcare.vn", "SĐT": "0974455667", "Vai trò": "thungan" }
+            ];
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "DanhSachNhanVien");
+            XLSX.writeFile(wb, "Mau_Import_NhanSu_KTV.xlsx");
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

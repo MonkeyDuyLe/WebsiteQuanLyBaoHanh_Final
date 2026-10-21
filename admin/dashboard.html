@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Điều Khiển Quản Trị - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="active"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>📊 Dashboard Quản Trị Hệ Thống</h1>
+                <p id="welcomeMsg">Chào mừng trở lại! Tổng quan tiến độ xử lý thiết bị hôm nay.</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="tickets.html?action=new" class="btn-action primary"><i class="fas fa-plus"></i> Tiếp nhận máy mới</a>
+                <a href="inventory.html" class="btn-action warning"><i class="fas fa-warehouse"></i> Kiểm tra kho</a>
+            </div>
+        </div>
+
+        <!-- 4 Key Statistic Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fas fa-inbox"></i></div>
+                <div class="stat-info">
+                    <h3 id="statToday">0</h3>
+                    <p>Tiếp nhận hôm nay</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fas fa-wrench"></i></div>
+                <div class="stat-info">
+                    <h3 id="statProcessing">0</h3>
+                    <p>Đang kiểm tra / Sửa chữa</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="stat-info">
+                    <h3 id="statWaitingParts">0</h3>
+                    <p>Đang chờ linh kiện</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-info">
+                    <h3 id="statCompleted">0</h3>
+                    <p>Đã sửa xong / Bàn giao</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Summary Tables -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-clock"></i> Phiếu Sửa Chữa Tiếp Nhận Gần Đây</h2>
+                <a href="tickets.html" style="color: var(--accent-dark); font-size: 0.9rem; text-decoration: none; font-weight: 600;">Xem tất cả phiếu &rarr;</a>
+            </div>
+            <div class="card-body no-pad">
+                <div id="ticketsLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải danh sách phiếu từ Firestore...</p>
+                </div>
+                <table id="ticketsTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Mã Ticket</th>
+                            <th>Khách hàng</th>
+                            <th>Số ĐT</th>
+                            <th>Thiết bị PC/Laptop</th>
+                            <th>Trạng thái</th>
+                            <th>KTV phụ trách</th>
+                            <th>Ngày nhận</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketsBody"></tbody>
+                </table>
+                <div id="ticketsEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">📋</span>
+                    <p>Chưa có phiếu bảo hành nào trong hệ thống.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentUser = null;
+
+        async function initDashboard() {
+            // Strictly enforce Admin / Employee roles
+            const { user, userData } = await checkAdminAuth('../index.html');
+            currentUser = userData;
+
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+
+            loadStatisticsAndTickets();
+        }
+
+        async function loadStatisticsAndTickets() {
+            try {
+                const snapshot = await db.collection('tickets').orderBy('createdAt', 'desc').get();
+                
+                let todayCount = 0;
+                let processingCount = 0;
+                let waitingPartsCount = 0;
+                let completedCount = 0;
+
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+
+                const tableBody = document.getElementById('ticketsBody');
+                tableBody.innerHTML = '';
+                let displayedCount = 0;
+
+                snapshot.forEach(doc => {
+                    const t = doc.data();
+                    const createdDate = t.createdAt ? (t.createdAt.toDate ? t.createdAt.toDate() : new Date(t.createdAt)) : null;
+
+                    if (createdDate && createdDate >= startOfToday) {
+                        todayCount++;
+                    }
+
+                    if (['dang_kiem_tra', 'dang_sua', 'cho_bao_gia'].includes(t.status)) {
+                        processingCount++;
+                    } else if (t.status === 'cho_linh_kien') {
+                        waitingPartsCount++;
+                    } else if (['hoan_thanh', 'da_ban_giao'].includes(t.status)) {
+                        completedCount++;
+                    }
+
+                    if (displayedCount < 8) {
+                        displayedCount++;
+                        tableBody.innerHTML += `
+                            <tr>
+                                <td><strong>${t.ticketId || doc.id}</strong></td>
+                                <td>${t.customerName || 'Khách vãng lai'}</td>
+                                <td>${t.customerPhone || '---'}</td>
+                                <td>${t.deviceType === 'laptop' ? '💻' : '🖥️'} ${t.deviceBrand || ''} ${t.deviceModel || ''}</td>
+                                <td>${getStatusBadge(t.status)}</td>
+                                <td>${t.assignedKtvName || '<span style="color:#999;">Chưa phân công</span>'}</td>
+                                <td>${formatDate(t.createdAt)}</td>
+                                <td>
+                                    <a href="tickets.html?id=${doc.id}" class="btn-action primary" style="padding: 4px 10px; font-size: 0.8rem;">
+                                        <i class="fas fa-eye"></i> Chi tiết
+                                    </a>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                });
+
+                document.getElementById('statToday').textContent = todayCount;
+                document.getElementById('statProcessing').textContent = processingCount;
+                document.getElementById('statWaitingParts').textContent = waitingPartsCount;
+                document.getElementById('statCompleted').textContent = completedCount;
+
+                document.getElementById('ticketsLoading').style.display = 'none';
+
+                if (snapshot.empty) {
+                    document.getElementById('ticketsEmpty').style.display = 'block';
+                } else {
+                    document.getElementById('ticketsTable').style.display = 'table';
+                }
+
+            } catch (err) {
+                console.error('Dashboard load error:', err);
+                showToast('Lỗi tải dữ liệu: ' + err.message, 'error');
+                document.getElementById('ticketsLoading').style.display = 'none';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

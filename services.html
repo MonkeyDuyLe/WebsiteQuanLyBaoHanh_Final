@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Giá & Dịch Vụ Sửa Chữa PC - Laptop | TechCare Pro</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .service-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .hero-banner {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        .hero-banner h1 {
+            color: #4fc3f7;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body class="public-page">
+
+    <header class="public-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.5rem;">💻🔧</span>
+            <h1 style="margin: 0; font-size: 1.2rem;">TechCare Pro</h1>
+        </div>
+        <nav>
+            <a href="index.html"><i class="fas fa-sign-in-alt"></i> Đăng nhập</a>
+            <a href="register.html" style="color: var(--accent); font-weight: 600;"><i class="fas fa-user-plus"></i> Đăng ký</a>
+            <a href="tracking.html"><i class="fas fa-search"></i> Tra cứu tiến độ</a>
+        </nav>
+    </header>
+
+    <div class="public-content">
+        <div class="hero-banner">
+            <h1>Bảng Giá Dịch Vụ Sửa Chữa & Linh Kiện PC - Laptop</h1>
+            <p>Cam kết linh kiện chính hãng 100%, bảo hành từ 6 đến 36 tháng, báo giá minh bạch trước khi làm</p>
+        </div>
+
+        <!-- Search & Filter Controls (US.04) -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Tìm kiếm dịch vụ, linh kiện (vd: Thay màn hình, Cài win, RAM, SSD, Vệ sinh...)" oninput="filterServices()">
+            <select id="categoryFilter" onchange="filterServices()">
+                <option value="all">Tất cả danh mục</option>
+                <option value="phan_cung">Sửa chữa phần cứng</option>
+                <option value="phan_mem">Cài đặt phần mềm & OS</option>
+                <option value="nang_cap">Nâng cấp PC / Laptop</option>
+                <option value="bao_duong">Vệ sinh & Bảo dưỡng tản nhiệt</option>
+                <option value="linh_kien">Linh kiện thay thế chính hãng</option>
+            </select>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Đang tải danh mục dịch vụ từ hệ thống...</p>
+        </div>
+
+        <div id="servicesGrid" class="cards-grid" style="display: none;"></div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <span class="icon">🔍</span>
+            <p>Không tìm thấy dịch vụ hoặc linh kiện nào phù hợp!</p>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; background: #fff; padding: 30px; border-radius: 12px; box-shadow: var(--shadow);">
+            <h3>Bạn cần tư vấn hoặc muốn đặt lịch kiểm tra ngay?</h3>
+            <p style="color: var(--text-light); margin: 10px 0 20px;">Đăng ký tài khoản để gửi yêu cầu đặt lịch hẹn, được ưu tiên tiếp nhận không phải chờ đợi!</p>
+            <a href="register.html" class="btn-action primary" style="font-size: 1rem; padding: 12px 28px;">
+                <i class="fas fa-calendar-check"></i> Đặt lịch hẹn sửa chữa ngay
+            </a>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        // Sample default catalog data in case Firestore collection is empty yet
+        const defaultServices = [
+            {
+                name: "Vệ sinh & Thay keo tản nhiệt Laptop cao cấp",
+                category: "bao_duong",
+                categoryName: "Vệ sinh & Bảo dưỡng",
+                description: "Làm sạch bụi quạt, tra keo tản nhiệt MX-4/Kryonaut, giảm 15-20°C nhiệt độ CPU/GPU.",
+                price: 150000,
+                estimatedTime: "45 - 60 phút",
+                warranty: "1 tháng"
+            },
+            {
+                name: "Cài đặt Windows 10/11 & Bộ phần mềm văn phòng đầy đủ",
+                category: "phan_mem",
+                categoryName: "Cài đặt phần mềm & OS",
+                description: "Cài Windows bản quyền, Office, PDF, Antivirus, Driver đầy đủ, tối ưu hóa tốc độ khởi động.",
+                price: 120000,
+                estimatedTime: "60 phút",
+                warranty: "Hỗ trợ trọn đời"
+            },
+            {
+                name: "Thay Màn hình Laptop Full HD IPS 14 inch / 15.6 inch",
+                category: "phan_cung",
+                categoryName: "Sửa chữa phần cứng",
+                description: "Màn hình IPS sắc nét, chống chói, tần số 60Hz - 144Hz cho các dòng Dell, HP, Asus, Lenovo, Acer.",
+                price: 1450000,
+                estimatedTime: "1 - 2 giờ",
+                warranty: "12 tháng đổi mới"
+            },
+            {
+                name: "Thay Bàn phím Laptop các dòng phổ thông",
+                category: "phan_cung",
+                categoryName: "Sửa chữa phần cứng",
+                description: "Khắc phục liệt phím, chập phím, bung nút. Linh kiện chính hãng độ nảy tốt.",
+                price: 350000,
+                estimatedTime: "45 phút",
+                warranty: "12 tháng"
+            },
+            {
+                name: "Nâng cấp SSD NVMe PCIe 512GB Kingston / Samsung",
+                category: "nang_cap",
+                categoryName: "Nâng cấp PC / Laptop",
+                description: "Tốc độ đọc ghi lên tới 3500MB/s, miễn phí sao lưu dữ liệu và cài lại hệ điều hành.",
+                price: 890000,
+                estimatedTime: "30 - 45 phút",
+                warranty: "36 tháng"
+            },
+            {
+                name: "Nâng cấp RAM DDR4 8GB / 16GB Bus 3200MHz",
+                category: "nang_cap",
+                categoryName: "Nâng cấp PC / Laptop",
+                description: "Tăng khả năng đa nhiệm, chạy mượt đồ họa, Photoshop, Premiere, CAD.",
+                price: 550000,
+                estimatedTime: "20 phút",
+                warranty: "36 tháng"
+            },
+            {
+                name: "Sửa nguồn Mainboard Laptop (Không lên nguồn, chập cháy)",
+                category: "phan_cung",
+                categoryName: "Sửa chữa phần cứng",
+                description: "Đo đạc, đóng chip, thay IC nguồn, sửa mạch sạc chuyên sâu bằng máy đóng chip BGA.",
+                price: 650000,
+                estimatedTime: "1 - 2 ngày",
+                warranty: "3 tháng"
+            },
+            {
+                name: "Thay Pin Laptop chính hãng (Chai pin, phồng pin)",
+                category: "linh_kien",
+                categoryName: "Linh kiện thay thế chính hãng",
+                description: "Pin chuẩn Zin dung lượng cao cho Dell, Asus, HP, Lenovo, Macbook.",
+                price: 650000,
+                estimatedTime: "30 phút",
+                warranty: "12 tháng"
+            }
+        ];
+
+        let loadedServices = [];
+
+        async function fetchServices() {
+            try {
+                const snapshot = await db.collection('services').where('status', '==', 'active').get();
+                if (!snapshot.empty) {
+                    loadedServices = [];
+                    snapshot.forEach(doc => {
+                        loadedServices.push({ id: doc.id, ...doc.data() });
+                    });
+                } else {
+                    // Seed initial data or fallback to defaults
+                    loadedServices = [...defaultServices];
+                }
+            } catch (err) {
+                console.warn('Using default catalog:', err);
+                loadedServices = [...defaultServices];
+            }
+            renderServices(loadedServices);
+        }
+
+        function renderServices(list) {
+            const grid = document.getElementById('servicesGrid');
+            const loading = document.getElementById('loading');
+            const empty = document.getElementById('emptyState');
+
+            loading.style.display = 'none';
+
+            if (list.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+            grid.innerHTML = '';
+
+            list.forEach(item => {
+                grid.innerHTML += `
+                    <div class="service-card">
+                        <span class="card-category">${item.categoryName || item.category}</span>
+                        <h3>${item.name}</h3>
+                        <p>${item.description || 'Dịch vụ chuyên nghiệp chất lượng cao tại TechCare Pro.'}</p>
+                        <div class="price">${formatVND(item.price)}</div>
+                        <div class="time"><i class="far fa-clock"></i> Ước tính: ${item.estimatedTime || '30 - 60 phút'}</div>
+                        ${item.warranty ? `<div class="time" style="color:#2e7d32;"><i class="fas fa-shield-alt"></i> Bảo hành: ${item.warranty}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        function filterServices() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+            const cat = document.getElementById('categoryFilter').value;
+
+            const filtered = loadedServices.filter(item => {
+                const matchesKeyword = item.name.toLowerCase().includes(keyword) || 
+                                       (item.description && item.description.toLowerCase().includes(keyword));
+                const matchesCat = (cat === 'all') || (item.category === cat);
+                return matchesKeyword && matchesCat;
+            });
+
+            renderServices(filtered);
+        }
+
+        fetchServices();
+    </script>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra cứu tiến độ sửa chữa & Bảo hành - TechCare Pro</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Scanner Library (US.15) -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        #qrReader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+        }
+        .status-tracker {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 30px 0;
+        }
+        .status-step {
+            text-align: center;
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+        .status-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        .status-step.completed .status-dot {
+            background: #43a047;
+        }
+        .status-step.active .status-dot {
+            background: #039be5;
+            box-shadow: 0 0 0 5px rgba(3,155,229,0.2);
+        }
+        .status-step .step-title {
+            font-size: 0.78rem;
+            color: #666;
+            font-weight: 500;
+        }
+        .status-step.active .step-title {
+            color: #039be5;
+            font-weight: 700;
+        }
+        .device-card-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--accent-dark);
+        }
+    </style>
+</head>
+<body class="public-page">
+
+    <header class="public-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.5rem;">💻🔧</span>
+            <h1 style="margin: 0; font-size: 1.2rem;">TechCare Pro</h1>
+        </div>
+        <nav>
+            <a href="index.html"><i class="fas fa-sign-in-alt"></i> Đăng nhập</a>
+            <a href="services.html"><i class="fas fa-list-alt"></i> Bảng giá dịch vụ</a>
+        </nav>
+    </header>
+
+    <div class="public-content">
+        <div class="page-title">
+            <h2>Tra Cứu Tiến Độ Phiếu Sửa Chữa & Bảo Hành</h2>
+            <p>Nhập Mã phiếu (Ticket ID) và Số điện thoại hoặc Quét mã QR in trên phiếu biên nhận để tra cứu nhanh (US.14, US.15)</p>
+        </div>
+
+        <div class="tracking-box">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                <button type="button" id="btnToggleQR" class="btn-action primary" onclick="toggleQRScanner()" style="font-size: 0.85rem; padding: 6px 14px;">
+                    <i class="fas fa-qrcode"></i> <span id="qrBtnText">Quét mã QR từ camera</span>
+                </button>
+            </div>
+
+            <!-- QR Reader Container (US.15) -->
+            <div id="qrReader"></div>
+
+            <form id="trackingForm" onsubmit="handleTrackTicket(event)">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="trackTicketId"><i class="fas fa-ticket-alt"></i> Mã phiếu sửa chữa (Ticket ID)</label>
+                    <input type="text" id="trackTicketId" placeholder="vd: TK-20261020-001" required style="width:100%; padding:10px 14px; border:2px solid var(--border); border-radius:8px; text-transform:uppercase;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="trackPhone"><i class="fas fa-phone"></i> Số điện thoại người mang máy đến</label>
+                    <input type="tel" id="trackPhone" placeholder="vd: 0912345678" required style="width:100%; padding:10px 14px; border:2px solid var(--border); border-radius:8px;">
+                </div>
+
+                <button type="submit" id="btnTrack" class="btn-primary" style="width: 100%;">
+                    <i class="fas fa-search"></i> Kiểm tra tiến độ ngay
+                </button>
+            </form>
+
+            <div id="trackLoading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Đang tìm kiếm thông tin phiếu sửa chữa...</p>
+            </div>
+
+            <!-- Result Box -->
+            <div id="trackResult" class="tracking-result" style="display: none;">
+                <hr style="margin: 25px 0; border: none; border-top: 1px dashed #ccc;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <span style="font-size: 0.8rem; color: #888;">Mã phiếu tiếp nhận</span>
+                        <h3 id="resTicketId" style="color: var(--primary); margin:0;">TK-XXXXX</h3>
+                    </div>
+                    <div id="resBadge"></div>
+                </div>
+
+                <div class="device-card-info">
+                    <p style="margin: 4px 0;"><strong><i class="fas fa-laptop"></i> Thiết bị:</strong> <span id="resDevice">Laptop Dell XPS 15</span></p>
+                    <p style="margin: 4px 0;"><strong><i class="fas fa-barcode"></i> Serial/IMEI:</strong> <span id="resSerial">SN-998231</span></p>
+                    <p style="margin: 4px 0;"><strong><i class="fas fa-exclamation-triangle"></i> Tình trạng báo lỗi:</strong> <span id="resIssue">Mất nguồn, không sạc được</span></p>
+                    <p style="margin: 4px 0;"><strong><i class="fas fa-user-cog"></i> KTV phụ trách:</strong> <span id="resKtv">KTV Trần Văn B</span></p>
+                    <p style="margin: 4px 0;"><strong><i class="far fa-calendar-alt"></i> Ngày tiếp nhận:</strong> <span id="resDate">---</span></p>
+                </div>
+
+                <!-- Progress Tracker Visual -->
+                <h4 style="margin-bottom: 10px; font-size: 0.95rem;"><i class="fas fa-stream"></i> Tiến độ xử lý:</h4>
+                <div class="status-tracker" id="trackerSteps">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Diagnosis & Quotation info if any -->
+                <div id="resDiagnosisBox" style="display: none; background: #e8f5e9; padding: 14px; border-radius: 8px; margin-top: 15px;">
+                    <h5 style="margin:0 0 6px 0; color: #1b5e20;"><i class="fas fa-stethoscope"></i> Kết quả chẩn đoán kỹ thuật:</h5>
+                    <p id="resDiagnosisText" style="margin: 0; font-size: 0.88rem; color: #2e7d32;"></p>
+                </div>
+
+                <!-- Quotation Section -->
+                <div id="resQuotationBox" style="display: none; background: #fff3e0; padding: 14px; border-radius: 8px; margin-top: 15px;">
+                    <h5 style="margin:0 0 6px 0; color: #e65100;"><i class="fas fa-file-invoice-dollar"></i> Chi phí sửa chữa dự kiến:</h5>
+                    <p id="resQuotationText" style="margin: 0; font-size: 0.88rem; color: #b78103; font-weight: 600;"></p>
+                </div>
+
+                <!-- Machine Images (US.30) -->
+                <div id="resImagesBox" style="display: none; margin-top: 15px;">
+                    <h5 style="margin-bottom: 8px;"><i class="fas fa-camera"></i> Hình ảnh tình trạng máy thực tế:</h5>
+                    <div id="resImagesGrid" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        let html5QrcodeScanner = null;
+
+        // Toggle QR scanner (US.15)
+        function toggleQRScanner() {
+            const qrBox = document.getElementById('qrReader');
+            const btnText = document.getElementById('qrBtnText');
+
+            if (qrBox.style.display === 'none' || qrBox.style.display === '') {
+                qrBox.style.display = 'block';
+                btnText.textContent = 'Đóng máy quét QR';
+
+                html5QrcodeScanner = new Html5Qrcode("qrReader");
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        // QR format can be Ticket ID directly or URL containing ticketId
+                        let tId = decodedText;
+                        if (decodedText.includes('ticketId=')) {
+                            const urlParams = new URLSearchParams(decodedText.split('?')[1]);
+                            tId = urlParams.get('ticketId') || decodedText;
+                        }
+                        document.getElementById('trackTicketId').value = tId.trim();
+                        showToast(`Đã quét mã: ${tId}`, 'success');
+                        stopScanner();
+                        // Prompt to enter phone or auto-submit if phone filled
+                        if (document.getElementById('trackPhone').value) {
+                            handleTrackTicket(new Event('submit'));
+                        } else {
+                            document.getElementById('trackPhone').focus();
+                        }
+                    },
+                    (error) => {
+                        // QR scan frame error ignored
+                    }
+                ).catch(err => {
+                    console.error('Camera error:', err);
+                    showToast('Không thể mở camera. Vui lòng cho phép quyền truy cập camera!', 'error');
+                    stopScanner();
+                });
+            } else {
+                stopScanner();
+            }
+        }
+
+        function stopScanner() {
+            const qrBox = document.getElementById('qrReader');
+            const btnText = document.getElementById('qrBtnText');
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                    qrBox.style.display = 'none';
+                    btnText.textContent = 'Quét mã QR từ camera';
+                }).catch(e => {
+                    qrBox.style.display = 'none';
+                    btnText.textContent = 'Quét mã QR từ camera';
+                });
+            } else {
+                qrBox.style.display = 'none';
+                btnText.textContent = 'Quét mã QR từ camera';
+            }
+        }
+
+        // Auto load from URL parameters if available
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ticketParam = urlParams.get('ticketId');
+            const phoneParam = urlParams.get('phone');
+            if (ticketParam) {
+                document.getElementById('trackTicketId').value = ticketParam;
+                if (phoneParam) {
+                    document.getElementById('trackPhone').value = phoneParam;
+                    handleTrackTicket(new Event('submit'));
+                }
+            }
+        });
+
+        const statusSequence = [
+            { key: 'cho_xu_ly', label: '1. Tiếp nhận' },
+            { key: 'dang_kiem_tra', label: '2. Chẩn đoán' },
+            { key: 'cho_bao_gia', label: '3. Báo giá' },
+            { key: 'dang_sua', label: '4. Đang sửa' },
+            { key: 'hoan_thanh', label: '5. Sửa xong' },
+            { key: 'da_ban_giao', label: '6. Hoàn tất' }
+        ];
+
+        async function handleTrackTicket(e) {
+            e.preventDefault();
+            const ticketId = document.getElementById('trackTicketId').value.trim().toUpperCase();
+            const phone = document.getElementById('trackPhone').value.trim();
+            const loading = document.getElementById('trackLoading');
+            const resultBox = document.getElementById('trackResult');
+
+            loading.style.display = 'block';
+            resultBox.style.display = 'none';
+
+            try {
+                // Query ticket by ticketId in Firestore
+                const querySnapshot = await db.collection('tickets').where('ticketId', '==', ticketId).get();
+
+                if (querySnapshot.empty) {
+                    loading.style.display = 'none';
+                    showToast('Không tìm thấy phiếu sửa chữa với mã: ' + ticketId, 'error');
+                    return;
+                }
+
+                let ticket = null;
+                querySnapshot.forEach(doc => {
+                    ticket = { id: doc.id, ...doc.data() };
+                });
+
+                // Verify phone matches (security check US.14)
+                const storedPhone = (ticket.customerPhone || '').replace(/\D/g, '');
+                const enteredPhone = phone.replace(/\D/g, '');
+
+                if (storedPhone && enteredPhone && !storedPhone.endsWith(enteredPhone.slice(-4)) && storedPhone !== enteredPhone) {
+                    loading.style.display = 'none';
+                    showToast('Số điện thoại không trùng khớp với thông tin trên phiếu!', 'error');
+                    return;
+                }
+
+                renderTrackResult(ticket);
+            } catch (err) {
+                console.error('Tracking query error:', err);
+                loading.style.display = 'none';
+                showToast('Lỗi khi tra cứu: ' + err.message, 'error');
+            }
+        }
+
+        function renderTrackResult(t) {
+            document.getElementById('trackLoading').style.display = 'none';
+            const resultBox = document.getElementById('trackResult');
+            resultBox.style.display = 'block';
+
+            document.getElementById('resTicketId').textContent = t.ticketId;
+            document.getElementById('resBadge').innerHTML = getStatusBadge(t.status);
+            document.getElementById('resDevice').textContent = `${t.deviceType === 'laptop' ? 'Laptop' : 'PC'} ${t.deviceBrand || ''} ${t.deviceModel || ''}`;
+            document.getElementById('resSerial').textContent = t.serialNumber || 'Không ghi nhận';
+            document.getElementById('resIssue').textContent = t.issueDescription || 'Cần kiểm tra chi tiết';
+            document.getElementById('resKtv').textContent = t.assignedKtvName || 'Đang phân công kỹ thuật viên';
+            document.getElementById('resDate').textContent = formatDateTime(t.createdAt);
+
+            // Render visual progress steps
+            const trackerDiv = document.getElementById('trackerSteps');
+            trackerDiv.innerHTML = '';
+
+            let currentIdx = statusSequence.findIndex(s => s.key === t.status);
+            if (currentIdx === -1) {
+                if (t.status === 'cho_linh_kien') currentIdx = 3;
+                else if (t.status === 'da_huy') currentIdx = 0;
+            }
+
+            statusSequence.forEach((step, idx) => {
+                let stateClass = '';
+                let icon = idx + 1;
+                if (idx < currentIdx) {
+                    stateClass = 'completed';
+                    icon = '<i class="fas fa-check"></i>';
+                } else if (idx === currentIdx) {
+                    stateClass = 'active';
+                    icon = '<i class="fas fa-cog fa-spin"></i>';
+                }
+
+                trackerDiv.innerHTML += `
+                    <div class="status-step ${stateClass}">
+                        <div class="status-dot">${icon}</div>
+                        <div class="step-title">${step.label}</div>
+                    </div>
+                `;
+            });
+
+            // Diagnosis
+            const diagBox = document.getElementById('resDiagnosisBox');
+            if (t.diagnosis) {
+                diagBox.style.display = 'block';
+                document.getElementById('resDiagnosisText').textContent = t.diagnosis;
+            } else {
+                diagBox.style.display = 'none';
+            }
+
+            // Quotation
+            const quoteBox = document.getElementById('resQuotationBox');
+            if (t.totalCost && t.totalCost > 0) {
+                quoteBox.style.display = 'block';
+                document.getElementById('resQuotationText').textContent = `Tổng dự toán: ${formatVND(t.totalCost)} (Trạng thái duyệt: ${t.quotationStatus === 'approved' ? 'Khách đã đồng ý ✅' : t.quotationStatus === 'rejected' ? 'Khách từ chối ❌' : 'Đang chờ khách duyệt ⏳'})`;
+            } else {
+                quoteBox.style.display = 'none';
+            }
+
+            // Photos (US.30)
+            const imgBox = document.getElementById('resImagesBox');
+            const imgGrid = document.getElementById('resImagesGrid');
+            if (t.images && (t.images.before || t.images.after)) {
+                imgBox.style.display = 'block';
+                imgGrid.innerHTML = '';
+                const beforeImgs = t.images.before || [];
+                beforeImgs.forEach(url => {
+                    imgGrid.innerHTML += `<div style="text-align:center;"><img src="${url}" style="width:100px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #ccc;"><br><small>Trước sửa</small></div>`;
+                });
+                const afterImgs = t.images.after || [];
+                afterImgs.forEach(url => {
+                    imgGrid.innerHTML += `<div style="text-align:center;"><img src="${url}" style="width:100px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #43a047;"><br><small style="color:#2e7d32; font-weight:600;">Sau sửa</small></div>`;
+                });
+            } else {
+                imgBox.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

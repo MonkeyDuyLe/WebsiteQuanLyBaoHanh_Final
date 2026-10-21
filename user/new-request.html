@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đặt Lịch Hẹn & Gửi Yêu Cầu Sửa Chữa - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html" class="active"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1>🔧 Đặt Lịch Hẹn & Gửi Yêu Cầu Sửa Chữa (US.09)</h1>
+            <p>Đặt lịch trước để được kỹ thuật viên tiếp nhận ngay khi đến cửa hàng, không phải bốc số chờ đợi</p>
+        </div>
+
+        <div class="card" style="max-width: 800px; margin: 0 auto;">
+            <div class="card-body">
+                <form id="appointmentForm" onsubmit="handleAppointmentSubmit(event)">
+                    <!-- Step 1: Chọn hoặc nhập máy -->
+                    <h3 style="font-size: 1.1rem; color: var(--primary); margin-bottom: 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                        <i class="fas fa-laptop"></i> 1. Thông Tin Thiết Bị Sửa Chữa
+                    </h3>
+
+                    <div class="form-group">
+                        <label for="selectSavedDevice">Chọn từ thiết bị đã lưu trong hồ sơ (hoặc nhập máy mới)</label>
+                        <select id="selectSavedDevice" onchange="handleSelectDeviceChange()">
+                            <option value="new">-- Nhập thiết bị mới --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reqDeviceType">Loại thiết bị (*)</label>
+                            <select id="reqDeviceType" required>
+                                <option value="laptop">Laptop / Notebook</option>
+                                <option value="pc">Máy tính để bàn (PC Desktop)</option>
+                                <option value="allinone">Máy tính All-In-One</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reqDeviceBrand">Hãng máy (*)</label>
+                            <input type="text" id="reqDeviceBrand" placeholder="Dell, Asus, HP, Lenovo, Acer, Apple..." required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reqDeviceModel">Model / Tên máy (*)</label>
+                            <input type="text" id="reqDeviceModel" placeholder="Inspiron 15, Vivobook, ThinkPad..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reqSerial">Số Serial / Service Tag (nếu có)</label>
+                            <input type="text" id="reqSerial" placeholder="DELL-SN-XXXXX" style="text-transform:uppercase;">
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Mô tả lỗi & dịch vụ -->
+                    <h3 style="font-size: 1.1rem; color: var(--primary); margin: 25px 0 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                        <i class="fas fa-tools"></i> 2. Nhu Cầu Dịch Vụ & Triệu Chứng Hỏng Hóc
+                    </h3>
+
+                    <div class="form-group">
+                        <label for="reqServiceType">Dịch vụ bạn quan tâm</label>
+                        <select id="reqServiceType">
+                            <option value="KiemTraTongThe">Kiểm tra & Chẩn đoán lỗi tổng thể</option>
+                            <option value="VeSinhBaoDuong">Vệ sinh & Tra keo tản nhiệt định kỳ</option>
+                            <option value="CaiDatPhanMem">Cài đặt hệ điều hành Windows / MacOS & Phần mềm</option>
+                            <option value="NangCapSSDRAM">Nâng cấp Ổ cứng SSD / Bộ nhớ RAM</option>
+                            <option value="SuaPhanCung">Sửa lỗi phần cứng (Mất nguồn, hỏng màn hình, bàn phím...)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reqIssueDescription">Mô tả triệu chứng hỏng hóc hoặc yêu cầu cụ thể (*)</label>
+                        <textarea id="reqIssueDescription" rows="3" placeholder="vd: Máy bật quạt quay nhưng không lên hình, bàn phím bị nhảy chữ loạn, máy rất nóng..." required></textarea>
+                    </div>
+
+                    <!-- Step 3: Chọn lịch hẹn mang máy đến -->
+                    <h3 style="font-size: 1.1rem; color: var(--primary); margin: 25px 0 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                        <i class="fas fa-calendar-check"></i> 3. Thời Gian Mang Máy Đến Cửa Hàng
+                    </h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reqApptDate">Ngày mang máy đến (*)</label>
+                            <input type="date" id="reqApptDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reqApptTimeSlot">Khung giờ tiếp nhận ưu tiên (*)</label>
+                            <select id="reqApptTimeSlot" required>
+                                <option value="sang">Buổi Sáng (08:30 - 11:30)</option>
+                                <option value="chieu">Buổi Chiều (13:30 - 17:00)</option>
+                                <option value="toi">Buổi Tối (18:00 - 20:30)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnSubmitAppt" class="btn-primary" style="margin-top: 20px; font-size: 1.05rem; padding: 14px;">
+                        <i class="fas fa-check-circle"></i> Xác Nhận Đặt Lịch & Tạo Phiếu Sửa Chữa
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+        let customerData = null;
+        let myDevices = [];
+
+        async function initPage() {
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+            customerData = userData;
+
+            const name = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            // Set default date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('reqApptDate').value = tomorrow.toISOString().split('T')[0];
+            document.getElementById('reqApptDate').min = new Date().toISOString().split('T')[0];
+
+            await loadCustomerDevices();
+
+            // Check URL params for prefilled device
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('brand')) {
+                document.getElementById('reqDeviceBrand').value = decodeURIComponent(urlParams.get('brand'));
+                document.getElementById('reqDeviceModel').value = decodeURIComponent(urlParams.get('model'));
+                document.getElementById('reqSerial').value = decodeURIComponent(urlParams.get('serial') || '');
+            }
+        }
+
+        async function loadCustomerDevices() {
+            try {
+                const snapshot = await db.collection('users').doc(currentAuthUser.uid).collection('devices').get();
+                const select = document.getElementById('selectSavedDevice');
+                myDevices = [];
+
+                snapshot.forEach(doc => {
+                    const d = { id: doc.id, ...doc.data() };
+                    myDevices.push(d);
+                    select.innerHTML += `<option value="${d.id}">${d.type === 'laptop' ? '💻' : '🖥️'} ${d.brand} ${d.model} (${d.serialNumber})</option>`;
+                });
+            } catch (err) {
+                console.error('Error loading devices:', err);
+            }
+        }
+
+        function handleSelectDeviceChange() {
+            const val = document.getElementById('selectSavedDevice').value;
+            if (val === 'new') {
+                document.getElementById('reqDeviceBrand').value = '';
+                document.getElementById('reqDeviceModel').value = '';
+                document.getElementById('reqSerial').value = '';
+            } else {
+                const dev = myDevices.find(d => d.id === val);
+                if (dev) {
+                    document.getElementById('reqDeviceType').value = dev.type || 'laptop';
+                    document.getElementById('reqDeviceBrand').value = dev.brand || '';
+                    document.getElementById('reqDeviceModel').value = dev.model || '';
+                    document.getElementById('reqSerial').value = dev.serialNumber || '';
+                }
+            }
+        }
+
+        async function handleAppointmentSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmitAppt');
+
+            // Generate Ticket ID: TK-YYYYMMDD-XXXX
+            const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const randCode = Math.floor(1000 + Math.random() * 9000);
+            const ticketId = `TK-${dateCode}-${randCode}`;
+
+            const payload = {
+                ticketId,
+                customerId: currentAuthUser.uid,
+                customerName: customerData.fullName || currentAuthUser.displayName || 'Khách hàng',
+                customerPhone: customerData.phone || '',
+                customerEmail: currentAuthUser.email || '',
+                deviceType: document.getElementById('reqDeviceType').value,
+                deviceBrand: document.getElementById('reqDeviceBrand').value.trim(),
+                deviceModel: document.getElementById('reqDeviceModel').value.trim(),
+                serialNumber: (document.getElementById('reqSerial').value.trim() || 'KHONG-CO').toUpperCase(),
+                serviceInterest: document.getElementById('reqServiceType').value,
+                issueDescription: document.getElementById('reqIssueDescription').value.trim(),
+                appointmentDate: document.getElementById('reqApptDate').value,
+                appointmentSlot: document.getElementById('reqApptTimeSlot').value,
+                status: 'cho_xu_ly',
+                quotationStatus: 'pending',
+                quotation: [],
+                totalCost: 0,
+                paymentStatus: 'chua_thanh_toan',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo phiếu hẹn...';
+
+                await db.collection('tickets').add(payload);
+
+                // Add to appointments collection as well
+                await db.collection('appointments').add({
+                    ticketId,
+                    customerId: currentAuthUser.uid,
+                    customerName: payload.customerName,
+                    customerPhone: payload.customerPhone,
+                    date: payload.appointmentDate,
+                    slot: payload.appointmentSlot,
+                    status: 'scheduled',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Add system notification
+                await db.collection('notifications').add({
+                    userId: currentAuthUser.uid,
+                    title: `Đặt lịch thành công: Mã phiếu ${ticketId}`,
+                    message: `Lịch hẹn mang máy đến vào ngày ${payload.appointmentDate} (${payload.appointmentSlot}) đã được ghi nhận. Mã phiếu của bạn là ${ticketId}.`,
+                    type: 'appointment',
+                    read: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast(`Đặt lịch hẹn thành công! Mã phiếu của bạn: ${ticketId}`, 'success', 4000);
+                setTimeout(() => {
+                    window.location.href = 'my-tickets.html';
+                }, 1500);
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Xác Nhận Đặt Lịch & Tạo Phiếu Sửa Chữa';
+                showToast('Lỗi đặt lịch: ' + err.message, 'error');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Phiếu Tiếp Nhận & Sửa Chữa PC - Laptop - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .print-receipt-container {
+            display: none;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            color: #000;
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printableReceipt, #printableReceipt * { visibility: visible; }
+            #printableReceipt {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html" class="active"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>🎫 Quản Lý Phiếu Bảo Hành & Sửa Chữa (Sprint 3, 4, 5)</h1>
+                <p>Tiếp nhận, phân công KTV, chẩn đoán, báo giá linh kiện, theo dõi sửa chữa và bàn giao máy</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-action secondary" onclick="openSerialCheckModal()"><i class="fas fa-barcode"></i> Tra cứu Serial/IMEI gốc (US.22)</button>
+                <button class="btn-action primary" onclick="openNewTicketModal()"><i class="fas fa-plus"></i> Tiếp nhận máy vãng lai (US.21)</button>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="tab active" onclick="filterByTab('all', this)">Tất cả phiếu</button>
+            <button class="tab" onclick="filterByTab('today_appointments', this)"><i class="fas fa-calendar-day"></i> Lịch hẹn hôm nay (US.19)</button>
+            <button class="tab" onclick="filterByTab('cho_xu_ly', this)">Chờ tiếp nhận</button>
+            <button class="tab" onclick="filterByTab('dang_kiem_tra', this)">Đang chẩn đoán (US.23)</button>
+            <button class="tab" onclick="filterByTab('cho_bao_gia', this)">Chờ duyệt giá (US.24)</button>
+            <button class="tab" onclick="filterByTab('dang_sua', this)">Đang sửa chữa (US.29)</button>
+            <button class="tab" onclick="filterByTab('cho_linh_kien', this)">Chờ linh kiện</button>
+            <button class="tab" onclick="filterByTab('hoan_thanh', this)">Đã sửa xong</button>
+            <button class="tab" onclick="filterByTab('da_ban_giao', this)">Đã bàn giao (US.31)</button>
+        </div>
+
+        <!-- Search & Quick Filters -->
+        <div class="search-bar">
+            <input type="text" id="ticketSearch" placeholder="Tìm theo Mã Ticket, Tên khách hàng, SĐT, Model máy..." oninput="applyFilters()">
+            <select id="ktvFilter" onchange="applyFilters()">
+                <option value="all">Tất cả Kỹ thuật viên</option>
+            </select>
+        </div>
+
+        <!-- Tickets Table -->
+        <div class="card">
+            <div class="card-body no-pad">
+                <div id="ticketsLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải danh sách phiếu...</p>
+                </div>
+                <table id="ticketsTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Mã Phiếu</th>
+                            <th>Khách Hàng</th>
+                            <th>Số ĐT</th>
+                            <th>Thiết Bị PC / Laptop</th>
+                            <th>Trạng Thái</th>
+                            <th>KTV Phụ Trách</th>
+                            <th>Thanh Toán</th>
+                            <th>Ngày Nhận</th>
+                            <th style="width: 170px;">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketsBody"></tbody>
+                </table>
+                <div id="ticketsEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">🎫</span>
+                    <p>Không tìm thấy phiếu nào phù hợp với bộ lọc.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal 1: Tra Cứu Bảo Hành Theo Serial/IMEI Gốc (US.22) -->
+    <div id="serialModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-barcode"></i> Tra Cứu Hạn Bảo Hành Gốc (Serial/IMEI) (US.22)</h3>
+                <button class="modal-close" onclick="closeSerialModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="checkSerialInput">Nhập số Serial / Service Tag / IMEI thiết bị (*)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="checkSerialInput" placeholder="vd: DELL-SN-998231 hoặc ASUS-IMEI-456" style="text-transform:uppercase;">
+                        <button type="button" class="btn-action primary" onclick="checkWarrantyBySerial()"><i class="fas fa-search"></i> Kiểm tra</button>
+                    </div>
+                </div>
+
+                <div id="serialResultBox" style="display: none; margin-top: 15px; padding: 15px; border-radius: 8px; background: #f8f9fa; border-left: 4px solid var(--accent-dark);">
+                    <h4 id="srModel" style="margin: 0 0 6px 0;">Laptop Dell Inspiron 5570</h4>
+                    <p id="srCustomer" style="margin: 2px 0; font-size: 0.85rem; color: #555;">Khách hàng: Nguyễn Văn A (0912345678)</p>
+                    <p id="srPurchase" style="margin: 2px 0; font-size: 0.85rem; color: #555;">Ngày mua: 15/05/2025</p>
+                    <p id="srExpiry" style="margin: 2px 0; font-size: 0.85rem; font-weight: 600;">Hạn bảo hành gốc: 15/05/2027</p>
+                    <div id="srStatusBadge" style="margin-top: 8px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeSerialModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Tạo Phiếu Tiếp Nhận Máy Vãng Lai (US.21) / Check-in (US.20) -->
+    <div id="newTicketModal" class="modal-overlay">
+        <div class="modal" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-signature"></i> Tạo Phiếu Tiếp Nhận Thiết Bị (Check-in)</h3>
+                <button class="modal-close" onclick="closeNewTicketModal()">&times;</button>
+            </div>
+            <form id="newTicketForm" onsubmit="handleCreateTicket(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ntCustomerName">Họ tên khách hàng (*)</label>
+                            <input type="text" id="ntCustomerName" placeholder="vd: Anh Tuấn" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ntCustomerPhone">Số điện thoại (*)</label>
+                            <input type="tel" id="ntCustomerPhone" placeholder="0912345678" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ntDeviceType">Loại thiết bị (*)</label>
+                            <select id="ntDeviceType" required>
+                                <option value="laptop">Laptop xách tay</option>
+                                <option value="pc">Máy tính để bàn (PC Desktop)</option>
+                                <option value="allinone">Máy tính All-In-One</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ntDeviceBrand">Hãng sản xuất (*)</label>
+                            <input type="text" id="ntDeviceBrand" placeholder="Dell, Asus, HP, Lenovo, Acer..." required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ntDeviceModel">Model máy (*)</label>
+                            <input type="text" id="ntDeviceModel" placeholder="Inspiron 15 3520" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ntSerialNumber">Số Serial / Service Tag</label>
+                            <input type="text" id="ntSerialNumber" placeholder="SN-XXXXX">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ntIssue">Mô tả tình trạng lỗi / Triệu chứng khi nhận máy (*)</label>
+                        <textarea id="ntIssue" rows="3" placeholder="vd: Bật không lên nguồn, quạt kêu to, màn hình nhấp nháy sọc..." required></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ntAssignKtv">Phân công Kỹ thuật viên (US.18)</label>
+                            <select id="ntAssignKtv">
+                                <option value="">-- Để trống hoặc Phân công ngay --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ntPriority">Mức độ ưu tiên</label>
+                            <select id="ntPriority">
+                                <option value="normal">Bình thường</option>
+                                <option value="high">Ưu tiên gấp (Hẹn lấy ngay)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ntAccessories">Phụ kiện kèm theo (nếu có)</label>
+                        <input type="text" id="ntAccessories" placeholder="vd: Kèm sạc adapter chính hãng, chuột">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeNewTicketModal()">Đóng</button>
+                    <button type="submit" id="btnSubmitNewTicket" class="btn btn-save"><i class="fas fa-print"></i> Tạo phiếu & Check-in</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Chi Tiết Phiếu, Chẩn Đoán KTV, Báo Giá, Ảnh & Bàn Giao (Sprint 4, 5) -->
+    <div id="ticketDetailModal" class="modal-overlay">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="dtTicketId" style="margin: 0; color: var(--primary);">TK-XXXXX</h3>
+                    <small id="dtCreatedAt" style="color: #666;"></small>
+                </div>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="currentDetailDocId">
+
+                <!-- Basic Customer & Device Info -->
+                <div style="background: #f8f9fa; padding: 14px; border-radius: 8px; margin-bottom: 20px;">
+                    <div class="form-row" style="margin-bottom: 8px;">
+                        <div><strong>Khách hàng:</strong> <span id="dtCustomerName"></span> (<span id="dtCustomerPhone"></span>)</div>
+                        <div><strong>Thiết bị:</strong> <span id="dtDevice"></span></div>
+                    </div>
+                    <div class="form-row">
+                        <div><strong>Serial/IMEI:</strong> <span id="dtSerial"></span></div>
+                        <div><strong>Lỗi ban đầu:</strong> <span id="dtIssue"></span></div>
+                    </div>
+                </div>
+
+                <!-- 1. KTV Chẩn đoán & Ghi chú kỹ thuật (US.23) -->
+                <div class="card" style="box-shadow:none; border:1px solid #e0e0e0; margin-bottom:15px;">
+                    <div class="card-header" style="padding:10px 16px;">
+                        <h4 style="margin:0; font-size:0.95rem;"><i class="fas fa-stethoscope"></i> 1. Chẩn Đoán Kỹ Thuật (KTV - US.23)</h4>
+                    </div>
+                    <div class="card-body" style="padding:14px;">
+                        <div class="form-group">
+                            <textarea id="dtDiagnosis" rows="2" placeholder="Nhập kết quả kiểm tra phần cứng, đo nguồn, test linh kiện, nguyên nhân hỏng..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Đề xuất linh kiện & Báo giá chi phí (US.24) -->
+                <div class="card" style="box-shadow:none; border:1px solid #e0e0e0; margin-bottom:15px;">
+                    <div class="card-header" style="padding:10px 16px; display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0; font-size:0.95rem;"><i class="fas fa-file-invoice-dollar"></i> 2. Đề Xuất Linh Kiện & Báo Giá (US.24)</h4>
+                        <button type="button" class="btn-action primary" style="padding:4px 10px; font-size:0.8rem;" onclick="addQuotationRow()">
+                            <i class="fas fa-plus"></i> Thêm linh kiện/dịch vụ
+                        </button>
+                    </div>
+                    <div class="card-body" style="padding:14px;">
+                        <table id="quoteTable" style="margin-bottom: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>Nội dung / Linh kiện</th>
+                                    <th style="width: 80px;">SL</th>
+                                    <th style="width: 140px;">Đơn giá</th>
+                                    <th style="width: 140px;">Thành tiền</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="quoteBody"></tbody>
+                        </table>
+                        <div style="text-align: right; font-size: 1.05rem;">
+                            <strong>Tổng chi phí báo khách: <span id="dtTotalCost" style="color:var(--danger);">0 đ</span></strong>
+                            <div style="font-size: 0.85rem; color: #666; margin-top: 4px;">
+                                Trạng thái duyệt của khách (US.25): 
+                                <span id="dtQuoteStatusBadge" class="badge badge-warning">Chờ khách duyệt</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Upload hình ảnh trước/sau sửa (US.30) -->
+                <div class="card" style="box-shadow:none; border:1px solid #e0e0e0; margin-bottom:15px;">
+                    <div class="card-header" style="padding:10px 16px;">
+                        <h4 style="margin:0; font-size:0.95rem;"><i class="fas fa-camera"></i> 3. Hình Ảnh Tình Trạng Máy Thực Tế (US.30)</h4>
+                    </div>
+                    <div class="card-body" style="padding:14px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fas fa-image"></i> Ảnh trước khi sửa (Trầy xước, vỡ nứt)</label>
+                                <input type="url" id="dtImgBefore" placeholder="Dán link ảnh hoặc để trống">
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fas fa-image"></i> Ảnh sau khi sửa xong</label>
+                                <input type="url" id="dtImgAfter" placeholder="Dán link ảnh sau khi hoàn thiện">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Cập nhật Trạng thái & Phân công & Thanh toán & Bàn giao (US.29, US.31) -->
+                <div class="card" style="box-shadow:none; border:1px solid #e0e0e0;">
+                    <div class="card-header" style="padding:10px 16px;">
+                        <h4 style="margin:0; font-size:0.95rem;"><i class="fas fa-tasks"></i> 4. Trạng Thái & Bàn Giao Thiết Bị (US.29, US.31)</h4>
+                    </div>
+                    <div class="card-body" style="padding:14px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dtStatusSelect">Trạng thái phiếu sửa chữa (*)</label>
+                                <select id="dtStatusSelect">
+                                    <option value="cho_xu_ly">Chờ tiếp nhận</option>
+                                    <option value="dang_kiem_tra">Đang kiểm tra / Chẩn đoán</option>
+                                    <option value="cho_bao_gia">Chờ khách duyệt báo giá</option>
+                                    <option value="dang_sua">Đang tiến hành sửa chữa</option>
+                                    <option value="cho_linh_kien">Chờ đặt linh kiện</option>
+                                    <option value="hoan_thanh">Đã sửa xong (Chờ khách lấy)</option>
+                                    <option value="da_ban_giao">Đã bàn giao máy cho khách</option>
+                                    <option value="da_huy">Đã hủy bỏ</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="dtKtvSelect">KTV phụ trách</label>
+                                <select id="dtKtvSelect"></select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dtPaymentSelect">Trạng thái thanh toán (Thu ngân - US.31)</label>
+                                <select id="dtPaymentSelect">
+                                    <option value="chua_thanh_toan">Chưa thanh toán</option>
+                                    <option value="da_thanh_toan">Đã thanh toán đủ tiền mặt / chuyển khoản</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="dtHandoverNotes">Ghi chú bàn giao thiết bị</label>
+                                <input type="text" id="dtHandoverNotes" placeholder="vd: Khách đã test màn hình OK, nhận đủ phụ kiện">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <div>
+                    <button type="button" class="btn btn-cancel" onclick="printReceipt()"><i class="fas fa-print"></i> In phiếu biên nhận / Hoá đơn (US.32)</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-cancel" onclick="closeDetailModal()">Đóng</button>
+                    <button type="button" id="btnSaveDetail" class="btn btn-save" onclick="saveTicketDetail()"><i class="fas fa-save"></i> Cập nhật phiếu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printable Receipt Template (US.32) -->
+    <div id="printableReceipt" class="print-receipt-container">
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+            <h2 style="margin: 0; font-size: 1.4rem;">TRUNG TÂM BẢO HÀNH & SỬA CHỮA PC - LAPTOP TECHCARE PRO</h2>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Địa chỉ: 123 Đường Công Nghệ, TP. Hồ Chí Minh | Hotline: 1900 6868</p>
+            <h3 id="prTitle" style="margin: 10px 0 0; text-transform: uppercase;">PHIẾU TIẾP NHẬN & BIÊN NHẬN SỬA CHỮA</h3>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <div>
+                <p><strong>Mã phiếu (Ticket ID):</strong> <span id="prTicketId" style="font-size: 1.2rem; font-weight: bold;"></span></p>
+                <p><strong>Khách hàng:</strong> <span id="prCustomer"></span></p>
+                <p><strong>Số điện thoại:</strong> <span id="prPhone"></span></p>
+            </div>
+            <div style="text-align: right;">
+                <p><strong>Ngày tiếp nhận:</strong> <span id="prDate"></span></p>
+                <p><strong>KTV phụ trách:</strong> <span id="prKtv"></span></p>
+                <p><strong>Trạng thái thanh toán:</strong> <span id="prPayment"></span></p>
+            </div>
+        </div>
+
+        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; border-radius: 6px;">
+            <p><strong>Thiết bị:</strong> <span id="prDevice"></span></p>
+            <p><strong>Serial/IMEI:</strong> <span id="prSerial"></span></p>
+            <p><strong>Tình trạng báo hỏng:</strong> <span id="prIssue"></span></p>
+            <p><strong>Chẩn đoán kỹ thuật:</strong> <span id="prDiagnosis"></span></p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;" border="1">
+            <thead>
+                <tr style="background: #f0f0f0;">
+                    <th style="padding: 6px;">Nội dung dịch vụ / Linh kiện thay thế</th>
+                    <th style="padding: 6px; width: 60px;">SL</th>
+                    <th style="padding: 6px; width: 120px;">Đơn giá</th>
+                    <th style="padding: 6px; width: 130px;">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody id="prQuoteBody"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align: right; padding: 8px; font-weight: bold;">TỔNG CỘNG THANH TOÁN:</td>
+                    <td style="padding: 8px; font-weight: bold; font-size: 1.1rem; color: red;" id="prTotalCost">0 đ</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 30px; text-align: center;">
+            <div style="width: 45%;">
+                <p><strong>Khách hàng</strong><br><small>(Ký và ghi rõ họ tên)</small></p>
+                <br><br><br>
+                <p id="prCustomerSign"></p>
+            </div>
+            <div style="width: 45%;">
+                <p><strong>Đại diện TechCare Pro</strong><br><small>(Ký, đóng dấu xác nhận)</small></p>
+                <br><br><br>
+                <p>Nhân viên tiếp nhận</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; font-size: 0.75rem; border-top: 1px dashed #999; padding-top: 10px; text-align: center;">
+            *Quý khách vui lòng giữ phiếu này để đối chiếu khi nhận máy. Quét mã QR trên phiếu hoặc tra cứu tại website để theo dõi tiến độ theo thời gian thực!
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentUser = null;
+        let allTickets = [];
+        let ktvList = [];
+        let currentTab = 'all';
+        let currentEditingTicket = null;
+
+        async function initPage() {
+            const { user, userData } = await checkAdminAuth('../index.html');
+            currentUser = userData;
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+
+            await loadKtvOptions();
+            await loadTickets();
+
+            // Check URL param if action=new or id=
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('action') === 'new') {
+                openNewTicketModal();
+            } else if (urlParams.get('id')) {
+                openTicketDetail(urlParams.get('id'));
+            }
+        }
+
+        async function loadKtvOptions() {
+            try {
+                const snapshot = await db.collection('users').where('role', '==', 'ktv').get();
+                ktvList = [];
+                snapshot.forEach(doc => {
+                    ktvList.push({ id: doc.id, ...doc.data() });
+                });
+
+                if (ktvList.length === 0) {
+                    ktvList = [
+                        { id: 'ktv1', fullName: 'Trần Văn Kỹ Thuật' },
+                        { id: 'ktv2', fullName: 'Lê Hoàng Nam' },
+                        { id: 'ktv3', fullName: 'Nguyễn Văn Minh' }
+                    ];
+                }
+
+                const filterSelect = document.getElementById('ktvFilter');
+                const ntSelect = document.getElementById('ntAssignKtv');
+                const dtSelect = document.getElementById('dtKtvSelect');
+
+                filterSelect.innerHTML = '<option value="all">Tất cả Kỹ thuật viên</option>';
+                ntSelect.innerHTML = '<option value="">-- Phân công KTV sau --</option>';
+                dtSelect.innerHTML = '<option value="">-- Chưa phân công --</option>';
+
+                ktvList.forEach(k => {
+                    filterSelect.innerHTML += `<option value="${k.id}">${k.fullName}</option>`;
+                    ntSelect.innerHTML += `<option value="${k.id}" data-name="${k.fullName}">${k.fullName}</option>`;
+                    dtSelect.innerHTML += `<option value="${k.id}" data-name="${k.fullName}">${k.fullName}</option>`;
+                });
+            } catch (err) {
+                console.error('Error loading KTV options:', err);
+            }
+        }
+
+        async function loadTickets() {
+            try {
+                document.getElementById('ticketsLoading').style.display = 'block';
+                const snapshot = await db.collection('tickets').orderBy('createdAt', 'desc').get();
+                allTickets = [];
+                snapshot.forEach(doc => {
+                    allTickets.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Auto Seed sample tickets if empty
+                if (allTickets.length === 0) {
+                    await seedSampleTickets();
+                    return;
+                }
+
+                applyFilters();
+            } catch (err) {
+                console.error('Error loading tickets:', err);
+                showToast('Lỗi tải phiếu sửa chữa: ' + err.message, 'error');
+                document.getElementById('ticketsLoading').style.display = 'none';
+            }
+        }
+
+        async function seedSampleTickets() {
+            const sampleTickets = [
+                {
+                    ticketId: "TK-20261020-001",
+                    customerName: "Nguyễn Văn An",
+                    customerPhone: "0912345678",
+                    deviceType: "laptop",
+                    deviceBrand: "Dell",
+                    deviceModel: "XPS 15 9500",
+                    serialNumber: "DELL-SN-998231",
+                    issueDescription: "Máy bật không lên nguồn, cắm sạc đèn nháy vàng",
+                    status: "dang_kiem_tra",
+                    assignedKtvId: "ktv1",
+                    assignedKtvName: "Trần Văn Kỹ Thuật",
+                    diagnosis: "Chập IC sạc nguồn trên Mainboard, pin phồng nhẹ",
+                    quotation: [
+                        { name: "Sửa nguồn Mainboard", qty: 1, price: 650000 },
+                        { name: "Thay Pin Laptop Zin", qty: 1, price: 850000 }
+                    ],
+                    totalCost: 1500000,
+                    quotationStatus: "pending",
+                    paymentStatus: "chua_thanh_toan",
+                    priority: "high"
+                },
+                {
+                    ticketId: "TK-20261020-002",
+                    customerName: "Trần Thị Mai",
+                    customerPhone: "0987654321",
+                    deviceType: "laptop",
+                    deviceBrand: "Asus",
+                    deviceModel: "Vivobook 15",
+                    serialNumber: "ASUS-SN-443211",
+                    issueDescription: "Máy chạy rất chậm, hay bị đơ lag khi mở Chrome",
+                    status: "dang_sua",
+                    assignedKtvId: "ktv2",
+                    assignedKtvName: "Lê Hoàng Nam",
+                    diagnosis: "Ổ cứng HDD cũ bị Bad Sector, cần nâng cấp SSD",
+                    quotation: [
+                        { name: "Nâng cấp SSD NVMe Kingston 512GB", qty: 1, price: 890000 },
+                        { name: "Cài Win 11 + Sao lưu dữ liệu", qty: 1, price: 120000 }
+                    ],
+                    totalCost: 1010000,
+                    quotationStatus: "approved",
+                    paymentStatus: "chua_thanh_toan",
+                    priority: "normal"
+                },
+                {
+                    ticketId: "TK-20261020-003",
+                    customerName: "Lê Văn Hùng",
+                    customerPhone: "0903344556",
+                    deviceType: "pc",
+                    deviceBrand: "Custom PC",
+                    deviceModel: "Gaming Core i5 RTX 3060",
+                    serialNumber: "PC-BUILD-8891",
+                    issueDescription: "Nhiệt độ CPU lên 95 độ C, tự sập nguồn khi chơi game",
+                    status: "hoan_thanh",
+                    assignedKtvId: "ktv1",
+                    assignedKtvName: "Trần Văn Kỹ Thuật",
+                    diagnosis: "Keo tản nhiệt bị khô cứng, quạt tản AIO bị kẹt bụi",
+                    quotation: [
+                        { name: "Vệ sinh máy tính & Tra keo MX-4", qty: 1, price: 150000 }
+                    ],
+                    totalCost: 150000,
+                    quotationStatus: "approved",
+                    paymentStatus: "da_thanh_toan",
+                    priority: "normal"
+                }
+            ];
+
+            for (const t of sampleTickets) {
+                t.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('tickets').add(t);
+            }
+            loadTickets();
+        }
+
+        function filterByTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.filter-tabs .tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const kw = document.getElementById('ticketSearch').value.toLowerCase().trim();
+            const ktv = document.getElementById('ktvFilter').value;
+
+            const filtered = allTickets.filter(t => {
+                const matchKw = (t.ticketId && t.ticketId.toLowerCase().includes(kw)) ||
+                                (t.customerName && t.customerName.toLowerCase().includes(kw)) ||
+                                (t.customerPhone && t.customerPhone.includes(kw)) ||
+                                (t.deviceModel && t.deviceModel.toLowerCase().includes(kw));
+
+                const matchKtv = ktv === 'all' || t.assignedKtvId === ktv;
+
+                let matchTab = true;
+                if (currentTab === 'today_appointments') {
+                    // Check if ticket appointment or created is today (US.19)
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    matchTab = (t.appointmentDate === todayStr) || (t.createdAt && formatDate(t.createdAt) === formatDate(new Date()));
+                } else if (currentTab !== 'all') {
+                    matchTab = t.status === currentTab;
+                }
+
+                return matchKw && matchKtv && matchTab;
+            });
+
+            renderTicketsTable(filtered);
+        }
+
+        function renderTicketsTable(list) {
+            document.getElementById('ticketsLoading').style.display = 'none';
+            const table = document.getElementById('ticketsTable');
+            const tbody = document.getElementById('ticketsBody');
+            const empty = document.getElementById('ticketsEmpty');
+
+            if (list.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            list.forEach(t => {
+                const isPaid = t.paymentStatus === 'da_thanh_toan';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong style="color:var(--accent-dark);">${t.ticketId}</strong></td>
+                        <td><strong>${t.customerName}</strong></td>
+                        <td>${t.customerPhone}</td>
+                        <td>${t.deviceType === 'laptop' ? '💻' : '🖥️'} ${t.deviceBrand || ''} ${t.deviceModel || ''}</td>
+                        <td>${getStatusBadge(t.status)}</td>
+                        <td>${t.assignedKtvName || '<span style="color:#aaa;">Chưa phân công</span>'}</td>
+                        <td>
+                            <span class="badge ${isPaid ? 'badge-success' : 'badge-warning'}">
+                                ${isPaid ? 'Đã thanh toán' : 'Chưa thu tiền'}
+                            </span>
+                        </td>
+                        <td>${formatDate(t.createdAt)}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn-action primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="openTicketDetail('${t.id}')">
+                                    <i class="fas fa-edit"></i> Xử lý / Chi tiết
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // SERIAL / IMEI LOOKUP (US.22)
+        function openSerialCheckModal() {
+            document.getElementById('checkSerialInput').value = '';
+            document.getElementById('serialResultBox').style.display = 'none';
+            document.getElementById('serialModal').classList.add('active');
+        }
+
+        function closeSerialModal() {
+            document.getElementById('serialModal').classList.remove('active');
+        }
+
+        async function checkWarrantyBySerial() {
+            const sn = document.getElementById('checkSerialInput').value.trim().toUpperCase();
+            if (!sn) return;
+
+            // Query existing tickets or users devices
+            const snapshot = await db.collection('tickets').where('serialNumber', '==', sn).get();
+            const resBox = document.getElementById('serialResultBox');
+            resBox.style.display = 'block';
+
+            if (!snapshot.empty) {
+                let foundTicket = null;
+                snapshot.forEach(d => foundTicket = d.data());
+                document.getElementById('srModel').textContent = `Thiết bị: ${foundTicket.deviceBrand} ${foundTicket.deviceModel}`;
+                document.getElementById('srCustomer').textContent = `Khách hàng: ${foundTicket.customerName} (${foundTicket.customerPhone})`;
+                document.getElementById('srPurchase').textContent = `Đã từng sửa tại cửa hàng vào: ${formatDate(foundTicket.createdAt)}`;
+                document.getElementById('srExpiry').textContent = `Tình trạng bảo hành dịch vụ: Còn hiệu lực (Bảo hành 12 tháng)`;
+                document.getElementById('srStatusBadge').innerHTML = '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Máy còn trong thời hạn bảo hành TechCare Pro</span>';
+            } else {
+                // Not found, check general rule
+                document.getElementById('srModel').textContent = `Mã Serial: ${sn}`;
+                document.getElementById('srCustomer').textContent = 'Thiết bị vãng lai lần đầu đến sửa chữa';
+                document.getElementById('srPurchase').textContent = 'Không có hồ sơ bảo hành trước đó';
+                document.getElementById('srExpiry').textContent = 'Hết hạn bảo hành chính hãng / Sửa chữa dịch vụ tính phí';
+                document.getElementById('srStatusBadge').innerHTML = '<span class="badge badge-warning"><i class="fas fa-info-circle"></i> Áp dụng sửa chữa tính phí dịch vụ</span>';
+            }
+        }
+
+        // NEW TICKET MODAL (US.20, US.21)
+        function openNewTicketModal() {
+            document.getElementById('newTicketForm').reset();
+            document.getElementById('newTicketModal').classList.add('active');
+        }
+
+        function closeNewTicketModal() {
+            document.getElementById('newTicketModal').classList.remove('active');
+        }
+
+        async function handleCreateTicket(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmitNewTicket');
+
+            // Generate Ticket ID: TK-YYYYMMDD-XXXX (US.20)
+            const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const randCode = Math.floor(1000 + Math.random() * 9000);
+            const ticketId = `TK-${dateCode}-${randCode}`;
+
+            const ktvSelect = document.getElementById('ntAssignKtv');
+            const ktvId = ktvSelect.value;
+            const ktvName = ktvId ? ktvSelect.options[ktvSelect.selectedIndex].getAttribute('data-name') : '';
+
+            const payload = {
+                ticketId,
+                customerName: document.getElementById('ntCustomerName').value.trim(),
+                customerPhone: document.getElementById('ntCustomerPhone').value.trim(),
+                deviceType: document.getElementById('ntDeviceType').value,
+                deviceBrand: document.getElementById('ntDeviceBrand').value.trim(),
+                deviceModel: document.getElementById('ntDeviceModel').value.trim(),
+                serialNumber: (document.getElementById('ntSerialNumber').value.trim() || 'KHONG-CO').toUpperCase(),
+                issueDescription: document.getElementById('ntIssue').value.trim(),
+                accessories: document.getElementById('ntAccessories').value.trim(),
+                priority: document.getElementById('ntPriority').value,
+                assignedKtvId: ktvId,
+                assignedKtvName: ktvName,
+                status: ktvId ? 'dang_kiem_tra' : 'cho_xu_ly',
+                paymentStatus: 'chua_thanh_toan',
+                quotationStatus: 'pending',
+                quotation: [],
+                totalCost: 0,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                btn.disabled = true;
+                const docRef = await db.collection('tickets').add(payload);
+                showToast(`Đã cấp Mã Ticket ${ticketId} thành công!`, 'success');
+                closeNewTicketModal();
+                btn.disabled = false;
+                loadTickets();
+                // Open detail immediately to allow printing
+                openTicketDetail(docRef.id);
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi tạo phiếu: ' + err.message, 'error');
+            }
+        }
+
+        // TICKET DETAIL & ACTION MODAL
+        function openTicketDetail(docId) {
+            const t = allTickets.find(item => item.id === docId);
+            if (!t) return;
+
+            currentEditingTicket = t;
+            document.getElementById('currentDetailDocId').value = docId;
+            document.getElementById('dtTicketId').textContent = t.ticketId;
+            document.getElementById('dtCreatedAt').textContent = `Thời gian tiếp nhận: ${formatDateTime(t.createdAt)}`;
+            document.getElementById('dtCustomerName').textContent = t.customerName;
+            document.getElementById('dtCustomerPhone').textContent = t.customerPhone;
+            document.getElementById('dtDevice').textContent = `${t.deviceType === 'laptop' ? 'Laptop' : 'PC'} ${t.deviceBrand || ''} ${t.deviceModel || ''}`;
+            document.getElementById('dtSerial').textContent = t.serialNumber || 'Không ghi nhận';
+            document.getElementById('dtIssue').textContent = t.issueDescription || '';
+
+            // 1. Diagnosis
+            document.getElementById('dtDiagnosis').value = t.diagnosis || '';
+
+            // 2. Quotation
+            renderQuoteRows(t.quotation || []);
+
+            // 3. Images (US.30)
+            document.getElementById('dtImgBefore').value = (t.images && t.images.before && t.images.before[0]) || '';
+            document.getElementById('dtImgAfter').value = (t.images && t.images.after && t.images.after[0]) || '';
+
+            // 4. Status, KTV, Payment
+            document.getElementById('dtStatusSelect').value = t.status || 'cho_xu_ly';
+            document.getElementById('dtKtvSelect').value = t.assignedKtvId || '';
+            document.getElementById('dtPaymentSelect').value = t.paymentStatus || 'chua_thanh_toan';
+            document.getElementById('dtHandoverNotes').value = t.handoverNotes || '';
+
+            // Quotation approval status badge (US.25)
+            const qBadge = document.getElementById('dtQuoteStatusBadge');
+            if (t.quotationStatus === 'approved') {
+                qBadge.className = 'badge badge-success';
+                qBadge.textContent = 'Khách đã duyệt đồng ý';
+            } else if (t.quotationStatus === 'rejected') {
+                qBadge.className = 'badge badge-danger';
+                qBadge.textContent = 'Khách từ chối sửa';
+            } else {
+                qBadge.className = 'badge badge-warning';
+                qBadge.textContent = 'Chờ khách xác nhận';
+            }
+
+            document.getElementById('ticketDetailModal').classList.add('active');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('ticketDetailModal').classList.remove('active');
+        }
+
+        // Quotation rows dynamic
+        function renderQuoteRows(quoteList) {
+            const tbody = document.getElementById('quoteBody');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            quoteList.forEach((q, idx) => {
+                const subTotal = (q.qty || 1) * (q.price || 0);
+                total += subTotal;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><input type="text" value="${q.name}" class="q-name" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                        <td><input type="number" value="${q.qty || 1}" min="1" class="q-qty" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                        <td><input type="number" value="${q.price || 0}" step="10000" class="q-price" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                        <td><strong class="q-subtotal">${formatVND(subTotal)}</strong></td>
+                        <td><button type="button" style="color:red; background:none; border:none; cursor:pointer;" onclick="this.closest('tr').remove(); calculateQuoteTotal();">&times;</button></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('dtTotalCost').textContent = formatVND(total);
+        }
+
+        function addQuotationRow() {
+            const tbody = document.getElementById('quoteBody');
+            tbody.innerHTML += `
+                <tr>
+                    <td><input type="text" placeholder="Tên linh kiện/dịch vụ" class="q-name" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                    <td><input type="number" value="1" min="1" class="q-qty" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                    <td><input type="number" value="150000" step="10000" class="q-price" style="width:100%;" oninput="calculateQuoteTotal()"></td>
+                    <td><strong class="q-subtotal">150.000 đ</strong></td>
+                    <td><button type="button" style="color:red; background:none; border:none; cursor:pointer;" onclick="this.closest('tr').remove(); calculateQuoteTotal();">&times;</button></td>
+                </tr>
+            `;
+            calculateQuoteTotal();
+        }
+
+        function calculateQuoteTotal() {
+            let total = 0;
+            const rows = document.querySelectorAll('#quoteBody tr');
+            rows.forEach(r => {
+                const qty = Number(r.querySelector('.q-qty').value || 1);
+                const price = Number(r.querySelector('.q-price').value || 0);
+                const sub = qty * price;
+                r.querySelector('.q-subtotal').textContent = formatVND(sub);
+                total += sub;
+            });
+            document.getElementById('dtTotalCost').textContent = formatVND(total);
+            return total;
+        }
+
+        async function saveTicketDetail() {
+            const docId = document.getElementById('currentDetailDocId').value;
+            const btn = document.getElementById('btnSaveDetail');
+
+            const ktvSelect = document.getElementById('dtKtvSelect');
+            const ktvId = ktvSelect.value;
+            const ktvName = ktvId ? ktvSelect.options[ktvSelect.selectedIndex].getAttribute('data-name') : '';
+
+            // Extract quotation
+            const quotation = [];
+            let totalCost = 0;
+            document.querySelectorAll('#quoteBody tr').forEach(r => {
+                const name = r.querySelector('.q-name').value.trim();
+                const qty = Number(r.querySelector('.q-qty').value || 1);
+                const price = Number(r.querySelector('.q-price').value || 0);
+                if (name) {
+                    quotation.push({ name, qty, price });
+                    totalCost += (qty * price);
+                }
+            });
+
+            const imgBefore = document.getElementById('dtImgBefore').value.trim();
+            const imgAfter = document.getElementById('dtImgAfter').value.trim();
+            const newStatus = document.getElementById('dtStatusSelect').value;
+
+            const updateData = {
+                diagnosis: document.getElementById('dtDiagnosis').value.trim(),
+                quotation,
+                totalCost,
+                assignedKtvId: ktvId,
+                assignedKtvName: ktvName,
+                status: newStatus,
+                paymentStatus: document.getElementById('dtPaymentSelect').value,
+                handoverNotes: document.getElementById('dtHandoverNotes').value.trim(),
+                images: {
+                    before: imgBefore ? [imgBefore] : [],
+                    after: imgAfter ? [imgAfter] : []
+                },
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // If status is completed or handover, stamp completion time
+            if (newStatus === 'hoan_thanh' || newStatus === 'da_ban_giao') {
+                updateData.completedTime = firebase.firestore.FieldValue.serverTimestamp();
+            }
+
+            try {
+                btn.disabled = true;
+                await db.collection('tickets').doc(docId).update(updateData);
+                showToast('Đã lưu thông tin phiếu sửa chữa thành công!', 'success');
+                btn.disabled = false;
+                closeDetailModal();
+                loadTickets();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu phiếu: ' + err.message, 'error');
+            }
+        }
+
+        // PRINT RECEIPT (US.32)
+        function printReceipt() {
+            const t = currentEditingTicket;
+            if (!t) return;
+
+            document.getElementById('prTicketId').textContent = t.ticketId;
+            document.getElementById('prCustomer').textContent = t.customerName;
+            document.getElementById('prPhone').textContent = t.customerPhone;
+            document.getElementById('prDate').textContent = formatDateTime(t.createdAt);
+            document.getElementById('prKtv').textContent = t.assignedKtvName || 'Đang phân công';
+            document.getElementById('prPayment').textContent = t.paymentStatus === 'da_thanh_toan' ? 'ĐÃ THANH TOÁN ĐỦ' : 'CHƯA THANH TOÁN';
+            document.getElementById('prDevice').textContent = `${t.deviceType === 'laptop' ? 'Laptop' : 'PC'} ${t.deviceBrand || ''} ${t.deviceModel || ''}`;
+            document.getElementById('prSerial').textContent = t.serialNumber || 'Không ghi nhận';
+            document.getElementById('prIssue').textContent = t.issueDescription || '';
+            document.getElementById('prDiagnosis').textContent = t.diagnosis || 'Đang chờ KTV chẩn đoán chi tiết';
+            document.getElementById('prCustomerSign').textContent = t.customerName;
+
+            const qBody = document.getElementById('prQuoteBody');
+            qBody.innerHTML = '';
+            let total = 0;
+            const quoteList = t.quotation || [];
+            quoteList.forEach(q => {
+                const sub = (q.qty || 1) * (q.price || 0);
+                total += sub;
+                qBody.innerHTML += `
+                    <tr>
+                        <td style="padding: 6px;">${q.name}</td>
+                        <td style="padding: 6px; text-align: center;">${q.qty || 1}</td>
+                        <td style="padding: 6px; text-align: right;">${formatVND(q.price)}</td>
+                        <td style="padding: 6px; text-align: right;">${formatVND(sub)}</td>
+                    </tr>
+                `;
+            });
+            document.getElementById('prTotalCost').textContent = formatVND(total);
+
+            window.print();
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

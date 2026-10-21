@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phiếu Sửa Chữa & Duyệt Báo Giá - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .quotation-action-box {
+            background: #fff8e1;
+            border: 2px solid #ffb300;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 15px 0;
+        }
+        .status-timeline-block {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 25px 0 20px;
+        }
+        .st-step {
+            text-align: center;
+            flex: 1;
+        }
+        .st-dot {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 6px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        .st-step.completed .st-dot { background: #43a047; }
+        .st-step.active .st-dot { background: #039be5; box-shadow: 0 0 0 4px rgba(3,155,229,0.2); }
+        .st-step .st-label { font-size: 0.75rem; color: #666; }
+        .st-step.active .st-label { color: #039be5; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html" class="active"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>🎫 Phiếu Sửa Chữa Của Tôi & Duyệt Báo Giá (US.10, US.25)</h1>
+                <p>Theo dõi tiến độ thời gian thực, xem chẩn đoán KTV và xác nhận đồng ý/từ chối báo giá sửa chữa</p>
+            </div>
+            <div>
+                <a href="new-request.html" class="btn-action primary"><i class="fas fa-plus"></i> Đặt lịch hẹn mới</a>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="tab active" onclick="filterTickets('all', this)">Tất cả phiếu</button>
+            <button class="tab" onclick="filterTickets('pending_quote', this)"><i class="fas fa-file-invoice-dollar"></i> Cần duyệt báo giá (US.25)</button>
+            <button class="tab" onclick="filterTickets('processing', this)">Đang xử lý / Sửa chữa</button>
+            <button class="tab" onclick="filterTickets('completed', this)">Đã sửa xong</button>
+            <button class="tab" onclick="filterTickets('da_huy', this)">Đã huỷ</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <input type="text" id="ticketSearch" placeholder="Tìm kiếm theo mã Ticket ID, tên máy..." oninput="renderFilteredTickets()">
+        </div>
+
+        <!-- Tickets Cards List -->
+        <div id="ticketsLoading" class="loading">
+            <div class="spinner"></div>
+            <p>Đang tải danh sách phiếu sửa chữa...</p>
+        </div>
+
+        <div id="ticketsGrid" class="cards-grid" style="display: none;"></div>
+
+        <div id="emptyTicketsState" class="empty-state" style="display: none;">
+            <span class="icon">📋</span>
+            <p>Không có phiếu sửa chữa nào trong danh mục này.</p>
+        </div>
+    </main>
+
+    <!-- Modal View Ticket Detail & Quotation Approval (US.10, US.25) -->
+    <div id="ticketDetailModal" class="modal-overlay">
+        <div class="modal" style="max-width: 720px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="mdTicketId" style="margin: 0; color: var(--primary);">TK-XXXXX</h3>
+                    <small id="mdCreatedAt" style="color: #666;"></small>
+                </div>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="currentDocId">
+
+                <!-- Progress visual steps -->
+                <div class="status-timeline-block" id="modalTimeline"></div>
+
+                <!-- Device Information -->
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 14px; margin-bottom: 15px; border-left: 4px solid var(--accent-dark);">
+                    <p style="margin: 3px 0;"><strong>Thiết bị:</strong> <span id="mdDevice"></span></p>
+                    <p style="margin: 3px 0;"><strong>Số Serial/IMEI:</strong> <span id="mdSerial"></span></p>
+                    <p style="margin: 3px 0;"><strong>Triệu chứng lỗi ban đầu:</strong> <span id="mdIssue"></span></p>
+                    <p style="margin: 3px 0;"><strong>KTV phụ trách:</strong> <span id="mdKtv"></span></p>
+                </div>
+
+                <!-- Diagnosis from KTV (US.23) -->
+                <div id="mdDiagnosisSection" style="background: #e8f5e9; padding: 14px; border-radius: 8px; margin-bottom: 15px; display: none;">
+                    <h4 style="margin: 0 0 4px 0; color: #1b5e20; font-size: 0.95rem;"><i class="fas fa-stethoscope"></i> Chẩn đoán từ Kỹ thuật viên:</h4>
+                    <p id="mdDiagnosisText" style="margin: 0; font-size: 0.9rem; color: #2e7d32;"></p>
+                </div>
+
+                <!-- QUOTATION APPROVAL SECTION (US.25) -->
+                <div id="mdQuotationSection" style="display: none;">
+                    <div class="quotation-action-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="margin: 0; color: #e65100; font-size: 1rem;"><i class="fas fa-file-invoice-dollar"></i> Báo Giá Chi Phí Linh Kiện & Dịch Vụ</h4>
+                            <span id="mdQuoteStatusBadge" class="badge badge-warning">Đang chờ bạn duyệt</span>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+                            <thead>
+                                <tr style="background: #fdf3d8;">
+                                    <th style="padding: 8px 12px; font-size: 0.8rem;">Linh kiện / Dịch vụ thay thế</th>
+                                    <th style="padding: 8px 12px; font-size: 0.8rem; width: 60px;">SL</th>
+                                    <th style="padding: 8px 12px; font-size: 0.8rem; width: 110px;">Đơn giá</th>
+                                    <th style="padding: 8px 12px; font-size: 0.8rem; width: 120px;">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mdQuoteBody"></tbody>
+                        </table>
+
+                        <div style="text-align: right; margin-bottom: 15px;">
+                            <span style="font-size: 0.9rem; color: #555;">Tổng chi phí dự kiến:</span>
+                            <strong id="mdTotalCost" style="font-size: 1.25rem; color: #e53935; margin-left: 8px;">0 đ</strong>
+                        </div>
+
+                        <!-- Accept / Reject Buttons (US.25) -->
+                        <div id="quotationButtonContainer" style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button type="button" class="btn-action danger" onclick="handleRespondQuotation('rejected')">
+                                <i class="fas fa-times"></i> Từ chối báo giá (Không sửa)
+                            </button>
+                            <button type="button" class="btn-action success" onclick="handleRespondQuotation('approved')">
+                                <i class="fas fa-check"></i> Đồng ý báo giá & Cho phép KTV tiến hành
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Photos Before/After (US.30) -->
+                <div id="mdPhotosSection" style="display: none; margin-top: 15px;">
+                    <h4 style="font-size: 0.95rem; margin-bottom: 8px;"><i class="fas fa-camera"></i> Hình ảnh tình trạng máy thực tế:</h4>
+                    <div id="mdPhotosGrid" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <div>
+                    <!-- Cancel Appointment Button (US.10) -->
+                    <button type="button" id="btnCancelAppointment" class="btn-action danger" style="display: none;" onclick="handleCancelAppointment()">
+                        <i class="fas fa-ban"></i> Hủy lịch hẹn này (US.10)
+                    </button>
+                </div>
+                <button type="button" class="btn btn-cancel" onclick="closeDetailModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+        let customerData = null;
+        let myTicketsList = [];
+        let currentFilter = 'all';
+        let activeModalTicket = null;
+
+        async function initPage() {
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+            customerData = userData;
+
+            const name = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            await loadMyTickets();
+
+            // Check URL param if id=
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('id')) {
+                openTicketDetail(urlParams.get('id'));
+            }
+        }
+
+        async function loadMyTickets() {
+            try {
+                document.getElementById('ticketsLoading').style.display = 'block';
+                const snapshot = await db.collection('tickets').get();
+                myTicketsList = [];
+
+                const phone = customerData.phone || '';
+                const email = currentAuthUser.email || '';
+
+                snapshot.forEach(doc => {
+                    const t = { id: doc.id, ...doc.data() };
+                    const matchPhone = phone && t.customerPhone && (t.customerPhone.includes(phone) || phone.includes(t.customerPhone));
+                    const matchEmail = email && t.customerEmail && t.customerEmail.toLowerCase() === email.toLowerCase();
+                    const matchUid = t.customerId === currentAuthUser.uid;
+
+                    if (matchPhone || matchEmail || matchUid) {
+                        myTicketsList.push(t);
+                    }
+                });
+
+                renderFilteredTickets();
+            } catch (err) {
+                console.error('Error loading tickets:', err);
+                document.getElementById('ticketsLoading').style.display = 'none';
+            }
+        }
+
+        function filterTickets(tab, btn) {
+            currentFilter = tab;
+            document.querySelectorAll('.filter-tabs .tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            renderFilteredTickets();
+        }
+
+        function renderFilteredTickets() {
+            document.getElementById('ticketsLoading').style.display = 'none';
+            const kw = document.getElementById('ticketSearch').value.toLowerCase().trim();
+            const grid = document.getElementById('ticketsGrid');
+            const empty = document.getElementById('emptyTicketsState');
+
+            const filtered = myTicketsList.filter(t => {
+                const matchKw = (t.ticketId && t.ticketId.toLowerCase().includes(kw)) ||
+                                (t.deviceModel && t.deviceModel.toLowerCase().includes(kw)) ||
+                                (t.deviceBrand && t.deviceBrand.toLowerCase().includes(kw));
+
+                let matchTab = true;
+                if (currentFilter === 'pending_quote') {
+                    matchTab = t.quotationStatus === 'pending' && t.totalCost > 0;
+                } else if (currentFilter === 'processing') {
+                    matchTab = ['cho_xu_ly', 'dang_kiem_tra', 'dang_sua', 'cho_linh_kien'].includes(t.status);
+                } else if (currentFilter === 'completed') {
+                    matchTab = ['hoan_thanh', 'da_ban_giao'].includes(t.status);
+                } else if (currentFilter === 'da_huy') {
+                    matchTab = t.status === 'da_huy';
+                }
+
+                return matchKw && matchTab;
+            });
+
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+            grid.innerHTML = '';
+
+            filtered.forEach(t => {
+                const needsApproval = t.quotationStatus === 'pending' && t.totalCost > 0;
+                grid.innerHTML += `
+                    <div class="service-card" style="border-top: 4px solid ${needsApproval ? '#f57c00' : 'var(--accent-dark)'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong style="color:var(--accent-dark); font-size:1.1rem;">${t.ticketId}</strong>
+                            ${getStatusBadge(t.status)}
+                        </div>
+                        <h3>${t.deviceType === 'laptop' ? '💻' : '🖥️'} ${t.deviceBrand} ${t.deviceModel}</h3>
+                        <p style="color:#555; margin-bottom: 8px;"><strong>Lỗi:</strong> ${t.issueDescription || '---'}</p>
+                        
+                        ${needsApproval ? `
+                            <div style="background:#fff3e0; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:0.85rem; color:#e65100; font-weight:600;">
+                                <i class="fas fa-exclamation-circle"></i> Báo giá cần bạn duyệt: ${formatVND(t.totalCost)}
+                            </div>
+                        ` : ''}
+
+                        <div style="font-size:0.85rem; color:#777; margin-bottom: 12px;">
+                            <i class="far fa-calendar-alt"></i> Tiếp nhận: ${formatDate(t.createdAt)}<br>
+                            <i class="fas fa-user-cog"></i> KTV: ${t.assignedKtvName || 'Đang phân công'}
+                        </div>
+
+                        <button type="button" class="btn-action primary" style="width:100%; justify-content:center;" onclick="openTicketDetail('${t.id}')">
+                            <i class="fas fa-eye"></i> Xem tiến độ & Chi tiết
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        const stepsList = [
+            { key: 'cho_xu_ly', label: 'Tiếp nhận' },
+            { key: 'dang_kiem_tra', label: 'Chẩn đoán' },
+            { key: 'cho_bao_gia', label: 'Báo giá' },
+            { key: 'dang_sua', label: 'Đang sửa' },
+            { key: 'hoan_thanh', label: 'Đã sửa xong' },
+            { key: 'da_ban_giao', label: 'Đã nhận máy' }
+        ];
+
+        function openTicketDetail(docId) {
+            const t = myTicketsList.find(item => item.id === docId);
+            if (!t) return;
+
+            activeModalTicket = t;
+            document.getElementById('currentDocId').value = docId;
+            document.getElementById('mdTicketId').textContent = t.ticketId;
+            document.getElementById('mdCreatedAt').textContent = `Ngày lập phiếu: ${formatDateTime(t.createdAt)}`;
+            document.getElementById('mdDevice').textContent = `${t.deviceType === 'laptop' ? 'Laptop' : 'PC'} ${t.deviceBrand} ${t.deviceModel}`;
+            document.getElementById('mdSerial').textContent = t.serialNumber || 'Không ghi nhận';
+            document.getElementById('mdIssue').textContent = t.issueDescription || '---';
+            document.getElementById('mdKtv').textContent = t.assignedKtvName || 'Đang chuẩn bị KTV';
+
+            // Render Timeline
+            const tl = document.getElementById('modalTimeline');
+            tl.innerHTML = '';
+            let currentIdx = stepsList.findIndex(s => s.key === t.status);
+            if (currentIdx === -1 && t.status === 'cho_linh_kien') currentIdx = 3;
+
+            stepsList.forEach((s, idx) => {
+                let cls = '';
+                let icon = idx + 1;
+                if (idx < currentIdx) { cls = 'completed'; icon = '<i class="fas fa-check"></i>'; }
+                else if (idx === currentIdx) { cls = 'active'; icon = '<i class="fas fa-cog fa-spin"></i>'; }
+
+                tl.innerHTML += `
+                    <div class="st-step ${cls}">
+                        <div class="st-dot">${icon}</div>
+                        <div class="st-label">${s.label}</div>
+                    </div>
+                `;
+            });
+
+            // Diagnosis section (US.23)
+            const diagSec = document.getElementById('mdDiagnosisSection');
+            if (t.diagnosis) {
+                diagSec.style.display = 'block';
+                document.getElementById('mdDiagnosisText').textContent = t.diagnosis;
+            } else {
+                diagSec.style.display = 'none';
+            }
+
+            // Quotation approval section (US.25)
+            const quoteSec = document.getElementById('mdQuotationSection');
+            if (t.quotation && t.quotation.length > 0) {
+                quoteSec.style.display = 'block';
+                const qBody = document.getElementById('mdQuoteBody');
+                qBody.innerHTML = '';
+                t.quotation.forEach(q => {
+                    const sub = (q.qty || 1) * (q.price || 0);
+                    qBody.innerHTML += `
+                        <tr>
+                            <td style="padding: 6px 12px;">${q.name}</td>
+                            <td style="padding: 6px 12px; text-align:center;">${q.qty || 1}</td>
+                            <td style="padding: 6px 12px; text-align:right;">${formatVND(q.price)}</td>
+                            <td style="padding: 6px 12px; text-align:right;"><strong>${formatVND(sub)}</strong></td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('mdTotalCost').textContent = formatVND(t.totalCost);
+
+                const badge = document.getElementById('mdQuoteStatusBadge');
+                const btnContainer = document.getElementById('quotationButtonContainer');
+
+                if (t.quotationStatus === 'approved') {
+                    badge.className = 'badge badge-success';
+                    badge.textContent = 'Bạn đã đồng ý báo giá ✅';
+                    btnContainer.style.display = 'none';
+                } else if (t.quotationStatus === 'rejected') {
+                    badge.className = 'badge badge-danger';
+                    badge.textContent = 'Bạn đã từ chối sửa ❌';
+                    btnContainer.style.display = 'none';
+                } else {
+                    badge.className = 'badge badge-warning';
+                    badge.textContent = 'Đang chờ bạn xác nhận ⏳';
+                    btnContainer.style.display = 'flex';
+                }
+            } else {
+                quoteSec.style.display = 'none';
+            }
+
+            // Cancel button for pending appointment (US.10)
+            const btnCancel = document.getElementById('btnCancelAppointment');
+            if (t.status === 'cho_xu_ly') {
+                btnCancel.style.display = 'inline-flex';
+            } else {
+                btnCancel.style.display = 'none';
+            }
+
+            // Photos
+            const photosSec = document.getElementById('mdPhotosSection');
+            const photosGrid = document.getElementById('mdPhotosGrid');
+            if (t.images && (t.images.before || t.images.after)) {
+                photosSec.style.display = 'block';
+                photosGrid.innerHTML = '';
+                (t.images.before || []).forEach(url => {
+                    photosGrid.innerHTML += `<div style="text-align:center;"><img src="${url}" style="width:90px; height:70px; object-fit:cover; border-radius:6px; border:1px solid #ccc;"><br><small>Trước sửa</small></div>`;
+                });
+                (t.images.after || []).forEach(url => {
+                    photosGrid.innerHTML += `<div style="text-align:center;"><img src="${url}" style="width:90px; height:70px; object-fit:cover; border-radius:6px; border:1px solid #43a047;"><br><small style="color:#2e7d32;">Sau sửa</small></div>`;
+                });
+            } else {
+                photosSec.style.display = 'none';
+            }
+
+            document.getElementById('ticketDetailModal').classList.add('active');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('ticketDetailModal').classList.remove('active');
+        }
+
+        // RESPOND TO QUOTATION (US.25)
+        async function handleRespondQuotation(response) {
+            const docId = document.getElementById('currentDocId').value;
+            const actionText = response === 'approved' ? 'ĐỒNG Ý báo giá và cho phép KTV sửa chữa' : 'TỪ CHỐI báo giá sửa chữa';
+
+            if (confirm(`Bạn có chắc chắn muốn ${actionText}?`)) {
+                try {
+                    const updatePayload = {
+                        quotationStatus: response,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    if (response === 'approved') {
+                        updatePayload.status = 'dang_sua';
+                    }
+
+                    await db.collection('tickets').doc(docId).update(updatePayload);
+
+                    showToast(`Bạn đã ${response === 'approved' ? 'đồng ý' : 'từ chối'} báo giá sửa chữa thành công!`, 'success');
+                    closeDetailModal();
+                    loadMyTickets();
+                } catch (err) {
+                    showToast('Lỗi cập nhật: ' + err.message, 'error');
+                }
+            }
+        }
+
+        // CANCEL APPOINTMENT (US.10)
+        async function handleCancelAppointment() {
+            const docId = document.getElementById('currentDocId').value;
+            if (confirm('Bạn có chắc chắn muốn hủy lịch hẹn mang máy này?')) {
+                try {
+                    await db.collection('tickets').doc(docId).update({
+                        status: 'da_huy',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast('Đã hủy lịch hẹn thành công!', 'success');
+                    closeDetailModal();
+                    loadMyTickets();
+                } catch (err) {
+                    showToast('Lỗi hủy lịch: ' + err.message, 'error');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

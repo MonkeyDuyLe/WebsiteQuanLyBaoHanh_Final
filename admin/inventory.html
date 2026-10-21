@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Kho Vật Tư & Linh Kiện - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html" class="active"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>📦 Quản Lý Kho Linh Kiện & Vật Tư (US.26, US.27, US.28)</h1>
+                <p>Theo dõi tồn kho, cảnh báo vật tư sắp hết, tự động trừ kho khi xuất linh kiện sửa chữa</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-action success" onclick="openStockModal('import')"><i class="fas fa-arrow-down"></i> Nhập kho</button>
+                <button class="btn-action warning" onclick="openStockModal('export')"><i class="fas fa-arrow-up"></i> Xuất kho</button>
+                <button class="btn-action primary" onclick="openPartModal()"><i class="fas fa-plus"></i> Thêm linh kiện mới</button>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="tab active" onclick="switchTab('inventory', this)"><i class="fas fa-box-open"></i> Tồn kho hiện tại</button>
+            <button class="tab" onclick="switchTab('lowStock', this)"><i class="fas fa-exclamation-triangle"></i> Cảnh báo sắp hết (<span id="lowStockCount">0</span>)</button>
+            <button class="tab" onclick="switchTab('specialOrders', this)"><i class="fas fa-shipping-fast"></i> Yêu cầu linh kiện KTV (US.28)</button>
+            <button class="tab" onclick="switchTab('movements', this)"><i class="fas fa-history"></i> Lịch sử xuất/nhập kho</button>
+        </div>
+
+        <!-- TAB 1: INVENTORY & TAB 2: LOW STOCK -->
+        <div id="tabInventoryContent">
+            <div class="search-bar">
+                <input type="text" id="partSearch" placeholder="Tìm kiếm theo mã linh kiện, tên (SSD, RAM, Pin, Màn hình...)" oninput="filterParts()">
+                <select id="partCategory" onchange="filterParts()">
+                    <option value="all">Tất cả linh kiện</option>
+                    <option value="ram">Bộ nhớ RAM</option>
+                    <option value="ssd">Ổ cứng SSD / HDD</option>
+                    <option value="screen">Màn hình LCD / IPS</option>
+                    <option value="battery">Pin Laptop</option>
+                    <option value="keyboard">Bàn phím Laptop</option>
+                    <option value="mainboard">Mainboard / Chipset / IC</option>
+                    <option value="other">Vật tư phụ / Keo / Quạt</option>
+                </select>
+            </div>
+
+            <div class="card">
+                <div class="card-body no-pad">
+                    <div id="invLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Đang tải dữ liệu kho...</p>
+                    </div>
+                    <table id="partsTable" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Mã LK</th>
+                                <th>Tên Linh Kiện</th>
+                                <th>Danh Mục</th>
+                                <th>Tồn Kho</th>
+                                <th>Mức Tối Thiểu</th>
+                                <th>Giá Nhập</th>
+                                <th>Giá Bán Sửa Chữa</th>
+                                <th>Trạng Thái</th>
+                                <th style="width: 120px;">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partsBody"></tbody>
+                    </table>
+                    <div id="partsEmpty" class="empty-state" style="display: none;">
+                        <span class="icon">📦</span>
+                        <p>Không có linh kiện nào trong danh sách.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: SPECIAL ORDERS (US.28) -->
+        <div id="tabSpecialOrdersContent" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-shipping-fast"></i> Yêu Cầu Đặt Linh Kiện Đặc Thù Từ Kỹ Thuật Viên (US.28)</h2>
+                    <button class="btn-action primary" onclick="openRequestPartModal()"><i class="fas fa-plus"></i> KTV Gửi yêu cầu đặt linh kiện</button>
+                </div>
+                <div class="card-body no-pad">
+                    <table id="requestsTable">
+                        <thead>
+                            <tr>
+                                <th>Mã Yêu Cầu</th>
+                                <th>Ticket ID Sửa Chữa</th>
+                                <th>Tên Linh Kiện Cần Đặt</th>
+                                <th>Số Lượng</th>
+                                <th>KTV Đề Xuất</th>
+                                <th>Trạng Thái</th>
+                                <th>Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsBody"></tbody>
+                    </table>
+                    <div id="requestsEmpty" class="empty-state" style="display: none;">
+                        <span class="icon">✨</span>
+                        <p>Hiện không có yêu cầu linh kiện đặc thù nào.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: MOVEMENTS LOG (US.26) -->
+        <div id="tabMovementsContent" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-history"></i> Nhật Ký Biến Động Nhập / Xuất Kho (Tự Động)</h2>
+                </div>
+                <div class="card-body no-pad">
+                    <table id="movementsTable">
+                        <thead>
+                            <tr>
+                                <th>Thời Gian</th>
+                                <th>Loại Nghiệp Vụ</th>
+                                <th>Tên Linh Kiện</th>
+                                <th>Số Lượng</th>
+                                <th>Phiếu Ticket Liên Quan</th>
+                                <th>Người Thực Hiện</th>
+                                <th>Ghi Chú</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movementsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Add/Edit Part -->
+    <div id="partModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="partModalTitle"><i class="fas fa-box"></i> Thêm Linh Kiện Mới</h3>
+                <button class="modal-close" onclick="closePartModal()">&times;</button>
+            </div>
+            <form id="partForm" onsubmit="handleSavePart(event)">
+                <input type="hidden" id="editPartId">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="partCode">Mã linh kiện (*)</label>
+                            <input type="text" id="partCode" placeholder="LK-SSD-512G" required style="text-transform:uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="partCategorySelect">Danh mục (*)</label>
+                            <select id="partCategorySelect" required>
+                                <option value="ram">Bộ nhớ RAM</option>
+                                <option value="ssd">Ổ cứng SSD / HDD</option>
+                                <option value="screen">Màn hình LCD / IPS</option>
+                                <option value="battery">Pin Laptop</option>
+                                <option value="keyboard">Bàn phím Laptop</option>
+                                <option value="mainboard">Mainboard / Chipset / IC</option>
+                                <option value="other">Vật tư phụ / Keo / Quạt</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="partName">Tên linh kiện (*)</label>
+                        <input type="text" id="partName" placeholder="vd: SSD Kingston NV2 PCIe 4.0 512GB" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="partQuantity">Số lượng tồn kho ban đầu (*)</label>
+                            <input type="number" id="partQuantity" min="0" value="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="partMinQty">Mức tồn tối thiểu (Cảnh báo - US.27) (*)</label>
+                            <input type="number" id="partMinQty" min="1" value="3" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="partImportPrice">Giá nhập kho (VNĐ)</label>
+                            <input type="number" id="partImportPrice" min="0" step="10000" placeholder="650000">
+                        </div>
+                        <div class="form-group">
+                            <label for="partSellPrice">Giá bán / xuất thay thế (VNĐ) (*)</label>
+                            <input type="number" id="partSellPrice" min="0" step="10000" placeholder="890000" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closePartModal()">Hủy</button>
+                    <button type="submit" id="btnSubmitPart" class="btn btn-save"><i class="fas fa-save"></i> Lưu linh kiện</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Stock Import / Export (US.26) -->
+    <div id="stockModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="stockModalTitle"><i class="fas fa-exchange-alt"></i> Nhập / Xuất Kho</h3>
+                <button class="modal-close" onclick="closeStockModal()">&times;</button>
+            </div>
+            <form id="stockForm" onsubmit="handleStockMovement(event)">
+                <input type="hidden" id="stockMovementType" value="import">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="stockPartSelect">Chọn linh kiện (*)</label>
+                        <select id="stockPartSelect" required></select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockQty">Số lượng (*)</label>
+                            <input type="number" id="stockQty" min="1" value="1" required>
+                        </div>
+                        <div class="form-group" id="stockTicketGroup" style="display: none;">
+                            <label for="stockTicketId">Mã Ticket sửa chữa liên quan</label>
+                            <input type="text" id="stockTicketId" placeholder="TK-20261020-001">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stockNote">Lý do / Ghi chú</label>
+                        <input type="text" id="stockNote" placeholder="vd: Nhập lô hàng từ NPP hoặc Xuất thay màn hình">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeStockModal()">Đóng</button>
+                    <button type="submit" id="btnSubmitStock" class="btn btn-save"><i class="fas fa-check"></i> Xác nhận thực hiện</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Special Part Request from KTV (US.28) -->
+    <div id="requestModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-paper-plane"></i> KTV Đề Xuất Nhập Linh Kiện Đặc Thù (US.28)</h3>
+                <button class="modal-close" onclick="closeRequestModal()">&times;</button>
+            </div>
+            <form id="requestForm" onsubmit="handleSpecialPartRequest(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="reqTicketId">Mã phiếu Ticket đang xử lý (*)</label>
+                        <input type="text" id="reqTicketId" placeholder="vd: TK-20261020-001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reqPartName">Tên linh kiện đặc thù cần đặt (*)</label>
+                        <input type="text" id="reqPartName" placeholder="vd: Cáp màn hình EDP 40 pin Asus ROG G531" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reqQty">Số lượng cần (*)</label>
+                            <input type="number" id="reqQty" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reqEstimatedCost">Giá ước tính (nếu biết)</label>
+                            <input type="number" id="reqEstimatedCost" placeholder="300000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reqReason">Mô tả lý do / Tình trạng máy</label>
+                        <textarea id="reqReason" rows="2" placeholder="Kho không có sẵn linh kiện tương thích..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeRequestModal()">Hủy</button>
+                    <button type="submit" id="btnSubmitReq" class="btn btn-save"><i class="fas fa-paper-plane"></i> Gửi yêu cầu nhập</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentUser = null;
+        let allParts = [];
+        let allSpecialRequests = [];
+        let currentTabMode = 'inventory';
+
+        async function initPage() {
+            const { user, userData } = await checkAdminAuth('../index.html');
+            currentUser = userData;
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+
+            loadInventory();
+            loadSpecialRequests();
+            loadMovements();
+        }
+
+        async function loadInventory() {
+            try {
+                document.getElementById('invLoading').style.display = 'block';
+                const snapshot = await db.collection('inventory').orderBy('name', 'asc').get();
+                allParts = [];
+                snapshot.forEach(doc => {
+                    allParts.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Auto Seed sample inventory if empty
+                if (allParts.length === 0) {
+                    await seedInitialInventory();
+                    return;
+                }
+
+                updateLowStockBadge();
+                filterParts();
+            } catch (err) {
+                console.error('Inventory load error:', err);
+                showToast('Lỗi tải kho: ' + err.message, 'error');
+                document.getElementById('invLoading').style.display = 'none';
+            }
+        }
+
+        async function seedInitialInventory() {
+            const defaults = [
+                { partCode: "LK-SSD-512G", name: "SSD NVMe Kingston NV2 512GB", category: "ssd", quantity: 8, minQuantity: 3, importPrice: 650000, sellPrice: 890000 },
+                { partCode: "LK-SSD-1TB", name: "SSD Samsung 980 1TB NVMe M.2", category: "ssd", quantity: 2, minQuantity: 3, importPrice: 1250000, sellPrice: 1650000 },
+                { partCode: "LK-RAM-8G32", name: "RAM Laptop DDR4 8GB Bus 3200", category: "ram", quantity: 12, minQuantity: 4, importPrice: 380000, sellPrice: 550000 },
+                { partCode: "LK-RAM-16G", name: "RAM Laptop DDR4 16GB Bus 3200", category: "ram", quantity: 1, minQuantity: 3, importPrice: 750000, sellPrice: 990000 },
+                { partCode: "LK-SCR-156", name: "Màn hình Laptop 15.6 inch IPS FHD", category: "screen", quantity: 5, minQuantity: 2, importPrice: 1050000, sellPrice: 1450000 },
+                { partCode: "LK-BAT-DELL", name: "Pin Laptop Dell Inspiron 5570 OEM", category: "battery", quantity: 2, minQuantity: 2, importPrice: 420000, sellPrice: 650000 },
+                { partCode: "LK-KEY-ASUS", name: "Bàn phím Asus Zenbook UX430", category: "keyboard", quantity: 3, minQuantity: 2, importPrice: 240000, sellPrice: 450000 },
+                { partCode: "LK-KEO-MX4", name: "Tuýp keo tản nhiệt Arctic MX-4 4g", category: "other", quantity: 15, minQuantity: 5, importPrice: 85000, sellPrice: 150000 }
+            ];
+
+            for (const item of defaults) {
+                item.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('inventory').add(item);
+            }
+            loadInventory();
+        }
+
+        function updateLowStockBadge() {
+            const lowItems = allParts.filter(p => Number(p.quantity) <= Number(p.minQuantity));
+            document.getElementById('lowStockCount').textContent = lowItems.length;
+        }
+
+        function renderPartsTable(list) {
+            document.getElementById('invLoading').style.display = 'none';
+            const table = document.getElementById('partsTable');
+            const tbody = document.getElementById('partsBody');
+            const empty = document.getElementById('partsEmpty');
+
+            if (list.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            const catMap = {
+                'ram': 'RAM', 'ssd': 'Ổ cứng SSD', 'screen': 'Màn hình',
+                'battery': 'Pin', 'keyboard': 'Bàn phím', 'mainboard': 'Mainboard', 'other': 'Khác'
+            };
+
+            list.forEach(p => {
+                const isLow = Number(p.quantity) <= Number(p.minQuantity);
+                tbody.innerHTML += `
+                    <tr class="${isLow ? 'low-stock' : ''}">
+                        <td><strong>${p.partCode}</strong></td>
+                        <td>${p.name}</td>
+                        <td><span class="badge badge-info">${catMap[p.category] || p.category}</span></td>
+                        <td>
+                            <strong style="font-size:1.05rem; color:${isLow ? '#e53935' : '#2e7d32'};">
+                                ${p.quantity}
+                            </strong>
+                        </td>
+                        <td>${p.minQuantity}</td>
+                        <td>${formatVND(p.importPrice)}</td>
+                        <td><strong style="color:var(--danger);">${formatVND(p.sellPrice)}</strong></td>
+                        <td>
+                            ${isLow ? 
+                                '<span class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> Sắp hết hàng</span>' : 
+                                '<span class="badge badge-success"><i class="fas fa-check"></i> Sẵn sàng</span>'
+                            }
+                        </td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn-sm edit" title="Sửa linh kiện" onclick="editPart('${p.id}')"><i class="fas fa-edit"></i></button>
+                                <button class="btn-sm delete" title="Xóa" onclick="deletePart('${p.id}', '${p.name}')"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterParts() {
+            const kw = document.getElementById('partSearch').value.toLowerCase().trim();
+            const cat = document.getElementById('partCategory').value;
+
+            let filtered = allParts.filter(p => {
+                const matchKw = p.name.toLowerCase().includes(kw) || (p.partCode && p.partCode.toLowerCase().includes(kw));
+                const matchCat = cat === 'all' || p.category === cat;
+                return matchKw && matchCat;
+            });
+
+            if (currentTabMode === 'lowStock') {
+                filtered = filtered.filter(p => Number(p.quantity) <= Number(p.minQuantity));
+            }
+
+            renderPartsTable(filtered);
+        }
+
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.filter-tabs .tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+
+            document.getElementById('tabInventoryContent').style.display = (tab === 'inventory' || tab === 'lowStock') ? 'block' : 'none';
+            document.getElementById('tabSpecialOrdersContent').style.display = (tab === 'specialOrders') ? 'block' : 'none';
+            document.getElementById('tabMovementsContent').style.display = (tab === 'movements') ? 'block' : 'none';
+
+            currentTabMode = tab;
+            if (tab === 'inventory' || tab === 'lowStock') {
+                filterParts();
+            } else if (tab === 'specialOrders') {
+                loadSpecialRequests();
+            } else if (tab === 'movements') {
+                loadMovements();
+            }
+        }
+
+        function openPartModal() {
+            document.getElementById('partForm').reset();
+            document.getElementById('editPartId').value = '';
+            document.getElementById('partModalTitle').innerHTML = '<i class="fas fa-box"></i> Thêm Linh Kiện Mới';
+            document.getElementById('partModal').classList.add('active');
+        }
+
+        function closePartModal() {
+            document.getElementById('partModal').classList.remove('active');
+        }
+
+        function editPart(id) {
+            const p = allParts.find(item => item.id === id);
+            if (!p) return;
+
+            document.getElementById('editPartId').value = id;
+            document.getElementById('partCode').value = p.partCode || '';
+            document.getElementById('partName').value = p.name || '';
+            document.getElementById('partCategorySelect').value = p.category || 'other';
+            document.getElementById('partQuantity').value = p.quantity || 0;
+            document.getElementById('partMinQty').value = p.minQuantity || 2;
+            document.getElementById('partImportPrice').value = p.importPrice || 0;
+            document.getElementById('partSellPrice').value = p.sellPrice || 0;
+
+            document.getElementById('partModalTitle').innerHTML = '<i class="fas fa-edit"></i> Chỉnh Sửa Linh Kiện';
+            document.getElementById('partModal').classList.add('active');
+        }
+
+        async function handleSavePart(e) {
+            e.preventDefault();
+            const id = document.getElementById('editPartId').value;
+            const btn = document.getElementById('btnSubmitPart');
+
+            const payload = {
+                partCode: document.getElementById('partCode').value.trim().toUpperCase(),
+                name: document.getElementById('partName').value.trim(),
+                category: document.getElementById('partCategorySelect').value,
+                quantity: Number(document.getElementById('partQuantity').value),
+                minQuantity: Number(document.getElementById('partMinQty').value),
+                importPrice: Number(document.getElementById('partImportPrice').value || 0),
+                sellPrice: Number(document.getElementById('partSellPrice').value || 0),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                btn.disabled = true;
+                if (id) {
+                    await db.collection('inventory').doc(id).update(payload);
+                    showToast('Đã cập nhật linh kiện!', 'success');
+                } else {
+                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('inventory').add(payload);
+                    showToast('Đã thêm linh kiện mới vào kho!', 'success');
+                }
+                closePartModal();
+                btn.disabled = false;
+                loadInventory();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu linh kiện: ' + err.message, 'error');
+            }
+        }
+
+        async function deletePart(id, name) {
+            if (confirm(`Bạn có chắc muốn xóa linh kiện "${name}"?`)) {
+                try {
+                    await db.collection('inventory').doc(id).delete();
+                    showToast('Đã xóa linh kiện!', 'success');
+                    loadInventory();
+                } catch (err) {
+                    showToast('Lỗi: ' + err.message, 'error');
+                }
+            }
+        }
+
+        // STOCK IMPORT / EXPORT (US.26)
+        function openStockModal(type) {
+            document.getElementById('stockForm').reset();
+            document.getElementById('stockMovementType').value = type;
+            const title = document.getElementById('stockModalTitle');
+            const ticketGroup = document.getElementById('stockTicketGroup');
+
+            if (type === 'import') {
+                title.innerHTML = '<i class="fas fa-arrow-down" style="color:#43a047;"></i> Nhập Kho Linh Kiện Mới';
+                ticketGroup.style.display = 'none';
+            } else {
+                title.innerHTML = '<i class="fas fa-arrow-up" style="color:#f57c00;"></i> Xuất Kho Linh Kiện Cho KTV (Trừ Tồn Kho)';
+                ticketGroup.style.display = 'block';
+            }
+
+            const select = document.getElementById('stockPartSelect');
+            select.innerHTML = '';
+            allParts.forEach(p => {
+                select.innerHTML += `<option value="${p.id}" data-name="${p.name}" data-qty="${p.quantity}">${p.name} (Hiện có: ${p.quantity})</option>`;
+            });
+
+            document.getElementById('stockModal').classList.add('active');
+        }
+
+        function closeStockModal() {
+            document.getElementById('stockModal').classList.remove('active');
+        }
+
+        async function handleStockMovement(e) {
+            e.preventDefault();
+            const type = document.getElementById('stockMovementType').value;
+            const partSelect = document.getElementById('stockPartSelect');
+            const partId = partSelect.value;
+            const partName = partSelect.options[partSelect.selectedIndex].getAttribute('data-name');
+            const currentQty = Number(partSelect.options[partSelect.selectedIndex].getAttribute('data-qty'));
+            const qty = Number(document.getElementById('stockQty').value);
+            const ticketId = document.getElementById('stockTicketId').value.trim().toUpperCase();
+            const note = document.getElementById('stockNote').value.trim();
+            const btn = document.getElementById('btnSubmitStock');
+
+            if (type === 'export' && qty > currentQty) {
+                showToast(`Không đủ số lượng trong kho để xuất! (Hiện còn ${currentQty})`, 'error');
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                const newQty = type === 'import' ? (currentQty + qty) : (currentQty - qty);
+
+                // Update part quantity in Firestore
+                await db.collection('inventory').doc(partId).update({
+                    quantity: newQty,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Record stock movement (US.26)
+                await db.collection('stockMovements').add({
+                    type,
+                    partId,
+                    partName,
+                    quantity: qty,
+                    ticketId: ticketId || 'Không gắn Ticket',
+                    note: note || (type === 'import' ? 'Nhập hàng bổ sung' : 'Xuất thay thế sửa chữa'),
+                    performedBy: currentUser ? currentUser.fullName : 'Admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast(`Đã ${type === 'import' ? 'nhập' : 'xuất'} thành công ${qty} ${partName}!`, 'success');
+                closeStockModal();
+                btn.disabled = false;
+                loadInventory();
+                loadMovements();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi xuất nhập kho: ' + err.message, 'error');
+            }
+        }
+
+        // LOAD MOVEMENTS
+        async function loadMovements() {
+            try {
+                const snapshot = await db.collection('stockMovements').orderBy('createdAt', 'desc').limit(50).get();
+                const tbody = document.getElementById('movementsBody');
+                tbody.innerHTML = '';
+
+                snapshot.forEach(doc => {
+                    const m = doc.data();
+                    const isImp = m.type === 'import';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${formatDateTime(m.createdAt)}</td>
+                            <td>
+                                <span class="badge ${isImp ? 'badge-success' : 'badge-warning'}">
+                                    ${isImp ? '<i class="fas fa-arrow-down"></i> Nhập kho' : '<i class="fas fa-arrow-up"></i> Xuất kho'}
+                                </span>
+                            </td>
+                            <td><strong>${m.partName}</strong></td>
+                            <td><strong style="color:${isImp ? '#2e7d32' : '#e65100'};">${isImp ? '+' : '-'}${m.quantity}</strong></td>
+                            <td>${m.ticketId || '---'}</td>
+                            <td>${m.performedBy || 'Nhân viên'}</td>
+                            <td>${m.note || '---'}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error('Error loading movements:', err);
+            }
+        }
+
+        // SPECIAL REQUESTS (US.28)
+        function openRequestPartModal() {
+            document.getElementById('requestForm').reset();
+            document.getElementById('requestModal').classList.add('active');
+        }
+
+        function closeRequestModal() {
+            document.getElementById('requestModal').classList.remove('active');
+        }
+
+        async function handleSpecialPartRequest(e) {
+            e.preventDefault();
+            const ticketId = document.getElementById('reqTicketId').value.trim().toUpperCase();
+            const partName = document.getElementById('reqPartName').value.trim();
+            const qty = Number(document.getElementById('reqQty').value);
+            const estCost = Number(document.getElementById('reqEstimatedCost').value || 0);
+            const reason = document.getElementById('reqReason').value.trim();
+            const btn = document.getElementById('btnSubmitReq');
+
+            try {
+                btn.disabled = true;
+                await db.collection('partRequests').add({
+                    ticketId,
+                    partName,
+                    quantity: qty,
+                    estimatedCost: estCost,
+                    reason,
+                    status: 'pending', // pending, ordered, received
+                    ktvName: currentUser ? currentUser.fullName : 'Kỹ thuật viên',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Đã gửi yêu cầu nhập linh kiện đặc thù cho Quản lý kho!', 'success');
+                closeRequestModal();
+                btn.disabled = false;
+                loadSpecialRequests();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi gửi yêu cầu: ' + err.message, 'error');
+            }
+        }
+
+        async function loadSpecialRequests() {
+            try {
+                const snapshot = await db.collection('partRequests').orderBy('createdAt', 'desc').get();
+                const tbody = document.getElementById('requestsBody');
+                const empty = document.getElementById('requestsEmpty');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    empty.style.display = 'block';
+                    return;
+                }
+                empty.style.display = 'none';
+
+                snapshot.forEach(doc => {
+                    const req = doc.data();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>REQ-${doc.id.slice(0, 6).toUpperCase()}</strong></td>
+                            <td><strong style="color:var(--accent-dark);">${req.ticketId}</strong></td>
+                            <td>${req.partName}</td>
+                            <td><strong>${req.quantity}</strong></td>
+                            <td>${req.ktvName || 'KTV'}</td>
+                            <td>
+                                <span class="badge ${req.status === 'received' ? 'badge-success' : req.status === 'ordered' ? 'badge-info' : 'badge-warning'}">
+                                    ${req.status === 'received' ? 'Đã về kho' : req.status === 'ordered' ? 'Đang đặt hàng' : 'Chờ duyệt đặt'}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions">
+                                    ${req.status === 'pending' ? `
+                                        <button class="btn-sm view" onclick="updateReqStatus('${doc.id}', 'ordered')"><i class="fas fa-check"></i> Đặt hàng</button>
+                                    ` : req.status === 'ordered' ? `
+                                        <button class="btn-sm edit" onclick="updateReqStatus('${doc.id}', 'received')"><i class="fas fa-box"></i> Đã về kho</button>
+                                    ` : '<span style="color:#2e7d32;">Hoàn tất</span>'}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error('Error loading special requests:', err);
+            }
+        }
+
+        async function updateReqStatus(id, newStatus) {
+            try {
+                await db.collection('partRequests').doc(id).update({
+                    status: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Đã cập nhật trạng thái yêu cầu!', 'success');
+                loadSpecialRequests();
+            } catch (err) {
+                showToast('Lỗi cập nhật: ' + err.message, 'error');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

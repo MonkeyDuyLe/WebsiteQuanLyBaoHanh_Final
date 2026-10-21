@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Sử Sửa Chữa & Bảo Hành - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html" class="active"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1>📜 Lịch Sử Sửa Chữa & Thay Thế Linh Kiện Qua Các Năm (US.16)</h1>
+            <p>Tra cứu hồ sơ bệnh án của thiết bị máy tính, các linh kiện đã từng thay thế và thời hạn bảo hành dịch vụ</p>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="search-bar">
+            <input type="text" id="historySearch" placeholder="Tìm kiếm theo mã Ticket, thiết bị, linh kiện đã thay..." oninput="filterHistory()">
+            <select id="deviceFilter" onchange="filterHistory()">
+                <option value="all">Tất cả thiết bị</option>
+            </select>
+        </div>
+
+        <!-- History Table -->
+        <div class="card">
+            <div class="card-body no-pad">
+                <div id="histLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải lịch sử bảo hành của bạn...</p>
+                </div>
+                <table id="histTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Mã Ticket</th>
+                            <th>Ngày Hoàn Thành</th>
+                            <th>Thiết Bị</th>
+                            <th>Nội Dung / Chẩn Đoán</th>
+                            <th>Linh Kiện Đã Thay</th>
+                            <th>Tổng Chi Phí</th>
+                            <th>KTV Xử Lý</th>
+                            <th>Đánh Giá</th>
+                        </tr>
+                    </thead>
+                    <tbody id="histBody"></tbody>
+                </table>
+                <div id="histEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">📜</span>
+                    <p>Bạn chưa có lịch sử sửa chữa nào đã hoàn thành.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+        let customerData = null;
+        let historyList = [];
+
+        async function initPage() {
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+            customerData = userData;
+
+            const name = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            loadHistoryData();
+        }
+
+        async function loadHistoryData() {
+            try {
+                document.getElementById('histLoading').style.display = 'block';
+                const snapshot = await db.collection('tickets').get();
+                historyList = [];
+
+                const phone = customerData.phone || '';
+                const email = currentAuthUser.email || '';
+
+                const devFilter = document.getElementById('deviceFilter');
+                const addedDevices = new Set();
+
+                snapshot.forEach(doc => {
+                    const t = { id: doc.id, ...doc.data() };
+                    const matchPhone = phone && t.customerPhone && (t.customerPhone.includes(phone) || phone.includes(t.customerPhone));
+                    const matchEmail = email && t.customerEmail && t.customerEmail.toLowerCase() === email.toLowerCase();
+                    const matchUid = t.customerId === currentAuthUser.uid;
+
+                    // History includes completed or handed over tickets (US.16)
+                    const isDone = ['hoan_thanh', 'da_ban_giao'].includes(t.status);
+
+                    if ((matchPhone || matchEmail || matchUid) && isDone) {
+                        historyList.push(t);
+                        const devName = `${t.deviceBrand || ''} ${t.deviceModel || ''}`.trim();
+                        if (devName && !addedDevices.has(devName)) {
+                            addedDevices.add(devName);
+                            devFilter.innerHTML += `<option value="${devName}">${devName}</option>`;
+                        }
+                    }
+                });
+
+                filterHistory();
+            } catch (err) {
+                console.error('History load error:', err);
+                document.getElementById('histLoading').style.display = 'none';
+            }
+        }
+
+        function filterHistory() {
+            document.getElementById('histLoading').style.display = 'none';
+            const kw = document.getElementById('historySearch').value.toLowerCase().trim();
+            const dev = document.getElementById('deviceFilter').value;
+            const table = document.getElementById('histTable');
+            const tbody = document.getElementById('histBody');
+            const empty = document.getElementById('histEmpty');
+
+            const filtered = historyList.filter(t => {
+                const matchKw = (t.ticketId && t.ticketId.toLowerCase().includes(kw)) ||
+                                (t.deviceModel && t.deviceModel.toLowerCase().includes(kw)) ||
+                                (t.diagnosis && t.diagnosis.toLowerCase().includes(kw));
+
+                const devName = `${t.deviceBrand || ''} ${t.deviceModel || ''}`.trim();
+                const matchDev = dev === 'all' || devName === dev;
+
+                return matchKw && matchDev;
+            });
+
+            if (filtered.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            filtered.forEach(t => {
+                const partsNames = (t.quotation || []).map(q => q.name).join(', ') || 'Vệ sinh / Cài đặt';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong style="color:var(--accent-dark);">${t.ticketId}</strong></td>
+                        <td>${formatDate(t.completedTime || t.createdAt)}</td>
+                        <td>${t.deviceType === 'laptop' ? '💻' : '🖥️'} ${t.deviceBrand} ${t.deviceModel}</td>
+                        <td>${t.diagnosis || t.issueDescription || '---'}</td>
+                        <td><span style="color:#555;">${partsNames}</span></td>
+                        <td><strong style="color:#2e7d32;">${formatVND(t.totalCost)}</strong></td>
+                        <td>${t.assignedKtvName || 'KTV TechCare'}</td>
+                        <td>
+                            <a href="reviews.html?ticketId=${t.ticketId}&ktvName=${encodeURIComponent(t.assignedKtvName || '')}" class="btn-action warning" style="padding: 4px 8px; font-size: 0.75rem;">
+                                <i class="fas fa-star"></i> Đánh giá
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

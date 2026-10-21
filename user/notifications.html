@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông Báo Hệ Thống - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Customer Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻 TechCare Pro</h2>
+            <small>Cổng Khách Hàng</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-home"></i></span> Trang chủ</a>
+            <a href="new-request.html"><span class="icon"><i class="fas fa-wrench"></i></span> Đặt lịch hẹn sửa chữa</a>
+            <a href="my-tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Phiếu sửa chữa của tôi</a>
+            <a href="profile.html"><span class="icon"><i class="fas fa-laptop"></i></span> Hồ sơ & Thiết bị PC/Laptop</a>
+            <a href="history.html"><span class="icon"><i class="fas fa-history"></i></span> Lịch sử sửa chữa</a>
+            <a href="notifications.html" class="active"><span class="icon"><i class="fas fa-bell"></i></span> Thông báo hệ thống</a>
+            <a href="reviews.html"><span class="icon"><i class="fas fa-star"></i></span> Đánh giá dịch vụ</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="userAvatar" style="background: var(--success); color: #fff;">U</div>
+                <div>
+                    <div class="admin-name" id="userName">Khách hàng</div>
+                    <div class="admin-role" style="color: #81c784;">Tài khoản Khách hàng</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>🔔 Hộp Thư Thông Báo Tiến Độ Trực Tuyến (US.17)</h1>
+                <p>Cập nhật tức thời khi kỹ thuật viên chẩn đoán máy, gửi báo giá và thông báo khi máy sửa xong để đến nhận</p>
+            </div>
+            <div>
+                <button class="btn-action secondary" onclick="markAllAsRead()"><i class="fas fa-check-double"></i> Đánh dấu tất cả đã đọc</button>
+            </div>
+        </div>
+
+        <div class="card" style="max-width: 800px;">
+            <div class="card-body no-pad">
+                <div id="notiLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải thông báo...</p>
+                </div>
+                <div id="notiList" style="display: none;"></div>
+                <div id="notiEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">🔔</span>
+                    <p>Bạn không có thông báo mới nào.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let currentAuthUser = null;
+        let notiDocs = [];
+
+        async function initPage() {
+            const { user, userData } = await checkCustomerAuth('../index.html');
+            currentAuthUser = user;
+
+            const name = userData.fullName || user.displayName || user.email.split('@')[0];
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            loadNotifications();
+        }
+
+        async function loadNotifications() {
+            try {
+                document.getElementById('notiLoading').style.display = 'block';
+                const snapshot = await db.collection('notifications')
+                    .where('userId', '==', currentAuthUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                notiDocs = [];
+                snapshot.forEach(doc => {
+                    notiDocs.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Auto Seed sample notification if empty
+                if (notiDocs.length === 0) {
+                    await seedSampleNotifications();
+                    return;
+                }
+
+                renderNotifications(notiDocs);
+            } catch (err) {
+                console.error('Error loading notifications:', err);
+                // In case index not created yet, fallback without order
+                try {
+                    const snap = await db.collection('notifications').where('userId', '==', currentAuthUser.uid).get();
+                    notiDocs = [];
+                    snap.forEach(doc => notiDocs.push({ id: doc.id, ...doc.data() }));
+                    renderNotifications(notiDocs);
+                } catch (e2) {
+                    document.getElementById('notiLoading').style.display = 'none';
+                }
+            }
+        }
+
+        async function seedSampleNotifications() {
+            const defaultNotis = [
+                {
+                    title: "Thiết bị của bạn đã được sửa chữa hoàn tất! 🎉",
+                    message: "Máy Laptop của bạn (Mã phiếu TK-20261020-001) đã được KTV thay màn hình và kiểm tra linh kiện OK. Mời bạn đến nhận máy tại quầy tiếp tân.",
+                    type: "completed",
+                    read: false
+                },
+                {
+                    title: "Báo giá sửa chữa mới cho phiếu TK-20261020-002",
+                    message: "KTV đã kiểm tra và gửi báo giá thay thế SSD 512GB với chi phí 1.010.000 đ. Vui lòng bấm vào đây để duyệt báo giá.",
+                    type: "quotation",
+                    read: false
+                },
+                {
+                    title: "Chào mừng bạn gia nhập TechCare Pro",
+                    message: "Tài khoản khách hàng của bạn đã sẵn sàng. Hãy trải nghiệm dịch vụ hỗ trợ kỹ thuật PC & Laptop chuyên nghiệp nhất.",
+                    type: "system",
+                    read: true
+                }
+            ];
+
+            for (const n of defaultNotis) {
+                n.userId = currentAuthUser.uid;
+                n.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('notifications').add(n);
+            }
+            loadNotifications();
+        }
+
+        function renderNotifications(list) {
+            document.getElementById('notiLoading').style.display = 'none';
+            const container = document.getElementById('notiList');
+            const empty = document.getElementById('notiEmpty');
+
+            if (list.length === 0) {
+                container.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            container.style.display = 'block';
+            container.innerHTML = '';
+
+            list.forEach(n => {
+                const isUnread = !n.read;
+                const icon = n.type === 'completed' ? '🎉' : (n.type === 'quotation' ? '💰' : '🔔');
+
+                container.innerHTML += `
+                    <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="markAsRead('${n.id}')">
+                        <div class="noti-icon" style="background:${isUnread ? '#e3f2fd' : '#f5f5f5'};">${icon}</div>
+                        <div class="noti-content">
+                            <h4 style="color:var(--primary); font-weight:${isUnread ? '700' : '500'};">${n.title}</h4>
+                            <p>${n.message}</p>
+                            <span class="noti-time">${formatDate(n.createdAt)}</span>
+                        </div>
+                        ${isUnread ? '<span class="badge badge-primary">Mới</span>' : ''}
+                    </div>
+                `;
+            });
+        }
+
+        async function markAsRead(id) {
+            try {
+                await db.collection('notifications').doc(id).update({ read: true });
+                const item = notiDocs.find(n => n.id === id);
+                if (item) item.read = true;
+                renderNotifications(notiDocs);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function markAllAsRead() {
+            try {
+                for (const n of notiDocs) {
+                    if (!n.read) {
+                        await db.collection('notifications').doc(n.id).update({ read: true });
+                        n.read = true;
+                    }
+                }
+                showToast('Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
+                renderNotifications(notiDocs);
+            } catch (err) {
+                showToast('Lỗi: ' + err.message, 'error');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

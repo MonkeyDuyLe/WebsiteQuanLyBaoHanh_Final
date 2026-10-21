@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Dịch Vụ & Linh Kiện - TechCare Pro</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h2>💻🔧 TechCare Pro</h2>
+            <small>Cổng Quản Trị Hệ Thống</small>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html"><span class="icon"><i class="fas fa-tachometer-alt"></i></span> Dashboard</a>
+            <a href="tickets.html"><span class="icon"><i class="fas fa-ticket-alt"></i></span> Quản lý Phiếu SC</a>
+            <a href="services.html" class="active"><span class="icon"><i class="fas fa-tools"></i></span> Danh mục Dịch vụ</a>
+            <a href="employees.html"><span class="icon"><i class="fas fa-users-cog"></i></span> Quản lý Nhân sự</a>
+            <a href="schedules.html"><span class="icon"><i class="fas fa-calendar-alt"></i></span> Lịch trực KTV</a>
+            <a href="inventory.html"><span class="icon"><i class="fas fa-boxes"></i></span> Quản lý Kho vật tư</a>
+            <a href="reports.html"><span class="icon"><i class="fas fa-chart-line"></i></span> Thống kê & Báo cáo</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="admin-info">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div>
+                    <div class="admin-name" id="adminName">Admin User</div>
+                    <div class="admin-role" id="adminRole">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleSignOut('../index.html')"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1>📋 Quản Lý Danh Mục Dịch Vụ & Bảng Giá (US.01)</h1>
+                <p>Cập nhật bảng giá sửa chữa, vệ sinh, nâng cấp PC/Laptop và linh kiện thay thế</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-action secondary" onclick="seedSampleServices()"><i class="fas fa-database"></i> Khởi tạo mẫu nhanh</button>
+                <button class="btn-action primary" onclick="openServiceModal()"><i class="fas fa-plus"></i> Thêm dịch vụ mới</button>
+            </div>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="search-bar">
+            <input type="text" id="serviceSearch" placeholder="Tìm kiếm theo tên dịch vụ, mô tả..." oninput="filterServicesTable()">
+            <select id="serviceCategory" onchange="filterServicesTable()">
+                <option value="all">Tất cả danh mục</option>
+                <option value="phan_cung">Sửa chữa phần cứng</option>
+                <option value="phan_mem">Cài đặt phần mềm & OS</option>
+                <option value="nang_cap">Nâng cấp PC / Laptop</option>
+                <option value="bao_duong">Vệ sinh & Bảo dưỡng tản nhiệt</option>
+                <option value="linh_kien">Linh kiện thay thế chính hãng</option>
+            </select>
+        </div>
+
+        <!-- Table of Services -->
+        <div class="card">
+            <div class="card-body no-pad">
+                <div id="serviceLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Đang tải danh sách dịch vụ...</p>
+                </div>
+                <table id="servicesTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Tên Dịch Vụ / Linh Kiện</th>
+                            <th>Danh Mục</th>
+                            <th>Đơn Giá</th>
+                            <th>Thời Gian Ước Tính</th>
+                            <th>Bảo Hành</th>
+                            <th>Trạng Thái</th>
+                            <th style="width: 130px;">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="servicesBody"></tbody>
+                </table>
+                <div id="servicesEmpty" class="empty-state" style="display: none;">
+                    <span class="icon">🔍</span>
+                    <p>Chưa có dịch vụ nào hoặc không tìm thấy kết quả phù hợp.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Add/Edit Service -->
+    <div id="serviceModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle"><i class="fas fa-tools"></i> Thêm Dịch Vụ Mới</h3>
+                <button class="modal-close" onclick="closeServiceModal()">&times;</button>
+            </div>
+            <form id="serviceForm" onsubmit="handleSaveService(event)">
+                <input type="hidden" id="editServiceId">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="formName">Tên dịch vụ / Linh kiện (*)</label>
+                        <input type="text" id="formName" placeholder="vd: Thay Màn hình IPS 15.6 inch" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="formCategory">Danh mục (*)</label>
+                            <select id="formCategory" required>
+                                <option value="phan_cung">Sửa chữa phần cứng</option>
+                                <option value="phan_mem">Cài đặt phần mềm & OS</option>
+                                <option value="nang_cap">Nâng cấp PC / Laptop</option>
+                                <option value="bao_duong">Vệ sinh & Bảo dưỡng tản nhiệt</option>
+                                <option value="linh_kien">Linh kiện thay thế chính hãng</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formPrice">Giá dịch vụ / Linh kiện (VNĐ) (*)</label>
+                            <input type="number" id="formPrice" min="0" step="10000" placeholder="150000" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="formTime">Thời gian thực hiện ước tính</label>
+                            <input type="text" id="formTime" placeholder="vd: 45 - 60 phút hoặc 1 ngày">
+                        </div>
+                        <div class="form-group">
+                            <label for="formWarranty">Thời hạn bảo hành</label>
+                            <input type="text" id="formWarranty" placeholder="vd: 12 tháng đổi mới">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="formDescription">Mô tả chi tiết kỹ thuật</label>
+                        <textarea id="formDescription" rows="3" placeholder="Mô tả các bước thực hiện, thương hiệu linh kiện..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="formStatus">Trạng thái kinh doanh</label>
+                        <select id="formStatus">
+                            <option value="active">Đang áp dụng (Kinh doanh)</option>
+                            <option value="inactive">Tạm ngưng cung cấp</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" onclick="closeServiceModal()">Hủy bỏ</button>
+                    <button type="submit" id="btnSubmitService" class="btn btn-save"><i class="fas fa-save"></i> Lưu dịch vụ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+
+    <script>
+        let allServices = [];
+
+        async function initPage() {
+            const { user, userData } = await checkAdminAuth('../index.html');
+            document.getElementById('adminName').textContent = userData.fullName || user.email;
+            document.getElementById('adminAvatar').textContent = (userData.fullName || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRole').innerHTML = getRoleBadge(userData.role);
+            loadServices();
+        }
+
+        async function loadServices() {
+            try {
+                document.getElementById('serviceLoading').style.display = 'block';
+                const snapshot = await db.collection('services').orderBy('name', 'asc').get();
+                allServices = [];
+                snapshot.forEach(doc => {
+                    allServices.push({ id: doc.id, ...doc.data() });
+                });
+                renderServicesTable(allServices);
+            } catch (err) {
+                console.error('Error fetching services:', err);
+                showToast('Lỗi tải danh mục dịch vụ: ' + err.message, 'error');
+                document.getElementById('serviceLoading').style.display = 'none';
+            }
+        }
+
+        function renderServicesTable(list) {
+            document.getElementById('serviceLoading').style.display = 'none';
+            const table = document.getElementById('servicesTable');
+            const tbody = document.getElementById('servicesBody');
+            const empty = document.getElementById('servicesEmpty');
+
+            if (list.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+
+            const catMap = {
+                'phan_cung': 'Sửa phần cứng',
+                'phan_mem': 'Cài đặt phần mềm',
+                'nang_cap': 'Nâng cấp máy',
+                'bao_duong': 'Vệ sinh & Tản nhiệt',
+                'linh_kien': 'Linh kiện thay thế'
+            };
+
+            list.forEach(item => {
+                const isAct = item.status !== 'inactive';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${item.name}</strong>
+                            ${item.description ? `<br><small style="color:#666;">${item.description}</small>` : ''}
+                        </td>
+                        <td><span class="badge badge-info">${catMap[item.category] || item.category}</span></td>
+                        <td><strong style="color:var(--danger);">${formatVND(item.price)}</strong></td>
+                        <td>${item.estimatedTime || '---'}</td>
+                        <td>${item.warranty || '---'}</td>
+                        <td>
+                            <span class="badge ${isAct ? 'badge-success' : 'badge-secondary'}">
+                                ${isAct ? 'Đang áp dụng' : 'Tạm ngưng'}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn-sm edit" title="Chỉnh sửa" onclick="editService('${item.id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-sm delete" title="Xóa" onclick="deleteService('${item.id}', '${item.name}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterServicesTable() {
+            const kw = document.getElementById('serviceSearch').value.toLowerCase().trim();
+            const cat = document.getElementById('serviceCategory').value;
+
+            const filtered = allServices.filter(s => {
+                const matchKw = s.name.toLowerCase().includes(kw) || (s.description && s.description.toLowerCase().includes(kw));
+                const matchCat = cat === 'all' || s.category === cat;
+                return matchKw && matchCat;
+            });
+            renderServicesTable(filtered);
+        }
+
+        function openServiceModal() {
+            document.getElementById('serviceForm').reset();
+            document.getElementById('editServiceId').value = '';
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Thêm Dịch Vụ Mới';
+            document.getElementById('serviceModal').classList.add('active');
+        }
+
+        function closeServiceModal() {
+            document.getElementById('serviceModal').classList.remove('active');
+        }
+
+        function editService(id) {
+            const item = allServices.find(s => s.id === id);
+            if (!item) return;
+
+            document.getElementById('editServiceId').value = id;
+            document.getElementById('formName').value = item.name || '';
+            document.getElementById('formCategory').value = item.category || 'phan_cung';
+            document.getElementById('formPrice').value = item.price || 0;
+            document.getElementById('formTime').value = item.estimatedTime || '';
+            document.getElementById('formWarranty').value = item.warranty || '';
+            document.getElementById('formDescription').value = item.description || '';
+            document.getElementById('formStatus').value = item.status || 'active';
+
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Chỉnh Sửa Dịch Vụ';
+            document.getElementById('serviceModal').classList.add('active');
+        }
+
+        async function handleSaveService(e) {
+            e.preventDefault();
+            const id = document.getElementById('editServiceId').value;
+            const btn = document.getElementById('btnSubmitService');
+
+            const payload = {
+                name: document.getElementById('formName').value.trim(),
+                category: document.getElementById('formCategory').value,
+                price: Number(document.getElementById('formPrice').value),
+                estimatedTime: document.getElementById('formTime').value.trim(),
+                warranty: document.getElementById('formWarranty').value.trim(),
+                description: document.getElementById('formDescription').value.trim(),
+                status: document.getElementById('formStatus').value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                btn.disabled = true;
+                if (id) {
+                    await db.collection('services').doc(id).update(payload);
+                    showToast('Đã cập nhật dịch vụ thành công!', 'success');
+                } else {
+                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('services').add(payload);
+                    showToast('Đã thêm dịch vụ mới thành công!', 'success');
+                }
+                closeServiceModal();
+                btn.disabled = false;
+                loadServices();
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Lỗi lưu dịch vụ: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteService(id, name) {
+            if (confirm(`Bạn có chắc muốn xóa dịch vụ "${name}"?`)) {
+                try {
+                    await db.collection('services').doc(id).delete();
+                    showToast('Đã xóa dịch vụ thành công!', 'success');
+                    loadServices();
+                } catch (err) {
+                    showToast('Lỗi xóa dịch vụ: ' + err.message, 'error');
+                }
+            }
+        }
+
+        async function seedSampleServices() {
+            if (confirm('Khởi tạo danh sách dịch vụ mẫu chuẩn PC/Laptop vào Firebase Firestore?')) {
+                const defaultList = [
+                    { name: "Vệ sinh & Tra keo tản nhiệt Laptop cao cấp", category: "bao_duong", price: 150000, estimatedTime: "45 phút", warranty: "1 tháng", description: "Vệ sinh quạt gió, tra keo Arctic MX-4", status: "active" },
+                    { name: "Cài đặt Windows 10/11 + Office & Bộ phần mềm", category: "phan_mem", price: 120000, estimatedTime: "60 phút", warranty: "Hỗ trợ trọn đời", description: "Cài Win bản quyền, Driver, Office, Antivirus", status: "active" },
+                    { name: "Thay Màn hình Laptop Full HD IPS 15.6 inch", category: "phan_cung", price: 1450000, estimatedTime: "1 giờ", warranty: "12 tháng", description: "Màn hình IPS sắc nét tần số quét cao", status: "active" },
+                    { name: "Nâng cấp SSD NVMe Kingston 512GB", category: "nang_cap", price: 890000, estimatedTime: "30 phút", warranty: "36 tháng", description: "Tốc độ đọc ghi 3500MB/s, hỗ trợ clone dữ liệu", status: "active" },
+                    { name: "Sửa nguồn Mainboard Laptop (Chập sạc/mất nguồn)", category: "phan_cung", price: 650000, estimatedTime: "1 - 2 ngày", warranty: "3 tháng", description: "Thay IC nguồn, đóng chip chuyên sâu", status: "active" },
+                    { name: "Thay Pin Laptop chính hãng", category: "linh_kien", price: 650000, estimatedTime: "30 phút", warranty: "12 tháng", description: "Pin zin tiêu chuẩn OEM", status: "active" }
+                ];
+
+                try {
+                    for (const s of defaultList) {
+                        s.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        await db.collection('services').add(s);
+                    }
+                    showToast('Khởi tạo dữ liệu mẫu thành công!', 'success');
+                    loadServices();
+                } catch (err) {
+                    showToast('Lỗi khởi tạo mẫu: ' + err.message, 'error');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

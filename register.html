@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký tài khoản Khách hàng - TechCare Pro</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-page">
+
+    <div class="auth-container" style="max-width: 480px;">
+        <div class="auth-logo">
+            <span class="logo-icon">💻✨</span>
+            <h1>Đăng ký Khách Hàng</h1>
+            <p>Tạo tài khoản để theo dõi lịch sử bảo hành, báo giá & gửi yêu cầu sửa chữa</p>
+        </div>
+
+        <form id="registerForm" class="auth-form" onsubmit="handleRegisterSubmit(event)">
+            <div class="form-group">
+                <label for="fullName"><i class="fas fa-user"></i> Họ và tên</label>
+                <input type="text" id="fullName" placeholder="vd: Nguyễn Văn A" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email"><i class="fas fa-envelope"></i> Địa chỉ Email</label>
+                    <input type="email" id="email" placeholder="email@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone"><i class="fas fa-phone"></i> Số điện thoại</label>
+                    <input type="tel" id="phone" placeholder="0912345678" pattern="[0-9]{10,11}" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="password"><i class="fas fa-lock"></i> Mật khẩu</label>
+                    <input type="password" id="password" placeholder="Tối thiểu 6 ký tự" minlength="6" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword"><i class="fas fa-check-circle"></i> Nhập lại mật khẩu</label>
+                    <input type="password" id="confirmPassword" placeholder="Khớp mật khẩu trên" minlength="6" required>
+                </div>
+            </div>
+
+            <!-- Bảo mật: Ẩn hoặc cố định vai trò là Khách hàng, KHÔNG cho phép chọn Admin -->
+            <div style="background: #e8f5e9; border: 1px dashed #43a047; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.82rem; color: #1b5e20;">
+                <i class="fas fa-user-tag"></i> <strong>Loại tài khoản:</strong> Khách hàng (Cổng cá nhân hóa thiết bị PC & Laptop). 
+                <br><small style="color: #555;">*Tài khoản Quản trị/Kỹ thuật viên do Quản trị viên cấp phép nội bộ.</small>
+            </div>
+
+            <div class="form-group checkbox-group" style="margin-bottom: 20px;">
+                <input type="checkbox" id="agreeTerms" required checked>
+                <label for="agreeTerms" style="margin-bottom:0;">Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo hành của TechCare Pro</label>
+            </div>
+
+            <button type="submit" id="btnRegister" class="btn-primary">
+                <i class="fas fa-user-plus"></i> Hoàn tất đăng ký
+            </button>
+        </form>
+
+        <div class="auth-links">
+            <p>Đã có tài khoản? <a href="index.html"><strong>Đăng nhập tại đây</strong></a></p>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+
+    <script>
+        async function handleRegisterSubmit(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const btn = document.getElementById('btnRegister');
+
+            if (password !== confirmPassword) {
+                showToast('Mật khẩu nhập lại không trùng khớp!', 'warning');
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang khởi tạo tài khoản...';
+
+                // Always registers strictly as 'khachhang' in Firestore
+                await registerCustomer(fullName, email, phone, password);
+
+                showToast('Đăng ký tài khoản thành công! Đang chuyển hướng...', 'success');
+                setTimeout(() => {
+                    // Direct to user dashboard
+                    window.location.href = 'user/dashboard.html';
+                }, 1200);
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-user-plus"></i> Hoàn tất đăng ký';
+                showToast(err.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
